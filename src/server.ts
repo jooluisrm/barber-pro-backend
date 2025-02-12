@@ -3,6 +3,9 @@ import 'dotenv/config';
 import cors from 'cors';
 import { mainRouter } from './routes/main';
 import helmet from 'helmet';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const server = express();
 server.use(helmet());
