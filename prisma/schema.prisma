@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Barbearia {
+  id         String  @id @default(uuid())
+  nome       String  @unique
+  email      String  @unique
+  senha      String
+  endereco   String
+  celular    String
+  telefone   String
+  fotoPerfil String?
+  descricao  String?
+  latitude   Float
+  longitude  Float
+  status     String  @default("Ativa")
+
+  barbeiros             Barbeiro[] // Relacionamento com os barbeiros
+  servicos              Servico[] // Relacionamento com os serviços
+  produtos              Produto[] // Relacionamento com os produtos
+  agendamentos          Agendamento[]
+  avaliacoes            Avaliacao[]
+  horariosFuncionamento HorariosFuncionamentoBarbearia[] // Relacionamento com os horários de funcionamento
+}
+
+model HorariosFuncionamentoBarbearia {
+  id          String @id @default(uuid())
+  barbeariaId String
+  diaSemana   String // Ex: "Segunda", "Terça", etc.
+  horaInicio  String // Ex: "10:00"
+  horaFim     String // Ex: "17:00"
+
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+}
+
+model Barbeiro {
+  id          String  @id @default(uuid())
+  barbeariaId String
+  nome        String
+  email       String  @unique
+  senha       String
+  telefone    String
+  fotoPerfil  String?
+
+  barbearia    Barbearia         @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  horarios     HorarioTrabalho[]
+  agendamentos Agendamento[]
+}
+
+model HorarioTrabalho {
+  id         String @id @default(uuid())
+  barbeiroId String
+  diaSemana  String // Exemplo: "Segunda", "Terça", etc.
+  horaInicio String // Horário de início (ex: "09:00")
+  horaFim    String // Horário de fim (ex: "18:00")
+  status     String @default("Ativo") // Status (ex: "Ativo" ou "Inativo")
+
+  barbeiro Barbeiro @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+}
+
+model Servico {
+  id          String   @id @default(uuid())
+  barbeariaId String
+  nome        String
+  duracao     Int // Duração em minutos
+  preco       Decimal?
+
+  barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  agendamentos Agendamento[]
+}
+
+model Produto {
+  id          String  @id @default(uuid())
+  barbeariaId String
+  nome        String
+  descricao   String?
+  preco       Decimal
+  tipo        String // Exemplo: Higiene, Bebida, Alimentação
+  imagemUrl   String?
+  estoque     Boolean // Indica se o produto está disponível ou não
+
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+}
+
+model Agendamento {
+  id          String   @id @default(uuid())
+  usuarioId   String
+  barbeariaId String
+  barbeiroId  String
+  servicoId   String
+  dataHora    DateTime
+  status      String   @default("Confirmado")
+
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbeiro  Barbeiro  @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+  servico   Servico   @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+}
+
+model Avaliacao {
+  id          String   @id @default(uuid())
+  usuarioId   String
+  barbeariaId String
+  nota        Int // A nota da avaliação (ex: 1 a 5)
+  comentario  String? // Comentário opcional
+  dataHora    DateTime @default(now()) // Data e hora da avaliação
+
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+}
+
+model Usuario {
+  id         String  @id @default(uuid())
+  nome       String
+  email      String  @unique
+  senha      String
+  telefone   String?
+  fotoPerfil String?
+
+  agendamentos Agendamento[] // Relacionamento com os agendamentos feitos pelos clientes
+  avaliacoes   Avaliacao[] // Relacionamento com as avaliações feitas pelos clientes
+}
