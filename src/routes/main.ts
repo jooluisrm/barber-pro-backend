@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../libs/prisma';
-import { BuscarEmail, createUser } from '../services/usuario';
+import { BuscarEmail } from '../services/usuario';
+import { autenticarToken, AuthRequest } from '../middlewares/authMiddleware';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
@@ -95,6 +96,70 @@ mainRouter.post('/usuario/login', async (req, res) => {
 
     } catch (error) {
         console.error('Erro ao fazer login:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
+
+mainRouter.get('/usuario/perfil', autenticarToken, async (req: any, res) => {
+    try {
+        const usuario = await prisma.usuario.findUnique({
+            where: { id: req.usuario.id }, // Pegamos o ID do token
+            select: {
+                id: true,
+                nome: true,
+                email: true,
+                telefone: true,
+                fotoPerfil: true
+            }
+        });
+
+        if (!usuario) {
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        return res.status(200).json(usuario);
+    } catch (error) {
+        console.error('Erro ao buscar perfil:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
+
+mainRouter.patch('/usuario/perfil', autenticarToken, async (req: AuthRequest, res) => {
+    try {
+        const usuarioId = req.usuario?.id; // Obtém o ID corretamente
+        const { nome, email, telefone } = req.body;
+
+        if (!usuarioId) {
+            return res.status(401).json({ error: 'Usuário não autenticado.' });
+        }
+
+        // 1️⃣ Verifica se pelo menos um campo foi enviado
+        if (!nome && !email && !telefone) {
+            return res.status(400).json({ error: 'Envie pelo menos um campo para atualização.' });
+        }
+
+        // 2️⃣ Se o e-mail for alterado, verificar se já existe no banco
+        if (email) {
+            const emailExistente = await prisma.usuario.findUnique({ where: { email } });
+            if (emailExistente && emailExistente.id !== usuarioId) {
+                return res.status(400).json({ error: 'Este e-mail já está em uso.' });
+            }
+        }
+
+        // 3️⃣ Atualiza os dados do usuário
+        const usuarioAtualizado = await prisma.usuario.update({
+            where: { id: usuarioId },
+            data: {
+                nome,
+                email,
+                telefone
+            }
+        });
+
+        return res.json({ message: 'Perfil atualizado com sucesso!', usuario: usuarioAtualizado });
+
+    } catch (error) {
+        console.error('Erro ao atualizar perfil:', error);
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 });
