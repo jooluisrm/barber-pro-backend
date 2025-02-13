@@ -236,3 +236,27 @@ mainRouter.get("/barbearia/:nome", async (req, res) => {
         return res.status(500).json({ error: "Erro interno do servidor" });
     }
 });
+
+// Rota para buscar os serviços de uma barbearia específica
+mainRouter.get('/barbearia/:id/servicos', async (req, res) => {
+    const { id } = req.params; // Obtém o ID da barbearia da URL
+  
+    try {
+      // Consulta os serviços da barbearia pelo id
+      const servicos = await prisma.servico.findMany({
+        where: {
+          barbeariaId: id, // Filtra os serviços pela barbearia
+        },
+      });
+  
+      if (servicos.length === 0) {
+        return res.status(404).json({ error: 'Nenhum serviço encontrado para esta barbearia.' });
+      }
+  
+      // Retorna os serviços encontrados
+      res.status(200).json(servicos);
+    } catch (error) {
+      console.error('Erro ao buscar serviços:', error);
+      res.status(500).json({ error: 'Erro ao buscar serviços.' });
+    }
+  });
