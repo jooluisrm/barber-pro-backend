@@ -214,3 +214,25 @@ function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: numbe
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
+
+
+mainRouter.get("/barbearia/:nome", async (req, res) => {
+    try {
+        const { nome } = req.params;
+
+        const barbearia = await prisma.barbearia.findUnique({
+            where: {
+                nome,
+            },
+        });
+
+        if (!barbearia) {
+            return res.status(404).json({ error: "Barbearia não encontrada" });
+        }
+
+        return res.json(barbearia);
+    } catch (error) {
+        console.error("Erro ao buscar barbearia:", error);
+        return res.status(500).json({ error: "Erro interno do servidor" });
+    }
+});
