@@ -171,7 +171,7 @@ mainRouter.patch('/usuario/perfil', autenticarToken, async (req: AuthRequest, re
 
 mainRouter.get("/barbearia/proxima", async (req, res) => {
     try {
-        const { latitude, longitude, raio = 50 } = req.query; // Raio padrão de 10km
+        const { latitude, longitude, raio = 50 } = req.query;
 
         if (!latitude || !longitude) {
             return res.status(400).json({ error: "Latitude e longitude são obrigatórios." });
@@ -181,28 +181,38 @@ mainRouter.get("/barbearia/proxima", async (req, res) => {
         const lonUser = parseFloat(longitude as string);
         const raioKm = parseFloat(raio as string);
 
-        // Buscar todas as barbearias
+        // Buscar todas as barbearias sem expor dados sensíveis
         const barbearias = await prisma.barbearia.findMany({
-            include: {
-                barbeiros: true, // Inclui barbeiros vinculados à barbearia
-            },
+            select: {
+                id: true,
+                nome: true,
+                endereco: true,
+                celular: true,
+                telefone: true,
+                fotoPerfil: true,
+                descricao: true,
+                latitude: true,
+                longitude: true,
+                status: true
+            }
         });
 
         // Calcular distância e filtrar barbearias dentro do raio desejado
         const barbeariasProximas = barbearias
-            .map(barbearia => {
-                const distancia = calcularDistancia(latUser, lonUser, barbearia.latitude, barbearia.longitude);
-                return { ...barbearia, distancia };
-            })
-            .filter(barbearia => barbearia.distancia <= raioKm) // Apenas barbearias dentro do raio
-            .sort((a, b) => a.distancia - b.distancia); // Ordena por proximidade
+            .map(barbearia => ({
+                ...barbearia,
+                distancia: calcularDistancia(latUser, lonUser, barbearia.latitude, barbearia.longitude)
+            }))
+            .filter(barbearia => barbearia.distancia <= raioKm)
+            .sort((a, b) => a.distancia - b.distancia);
 
         return res.json(barbeariasProximas);
     } catch (error) {
-        console.error("Erro ao buscar barbeiros próximos:", error);
+        console.error("Erro ao buscar barbearias próximas:", error);
         return res.status(500).json({ error: "Erro interno do servidor." });
     }
 });
+
 
 // Função para calcular a distância entre duas coordenadas usando a fórmula de Haversine
 function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number) {
