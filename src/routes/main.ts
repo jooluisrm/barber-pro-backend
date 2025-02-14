@@ -4,6 +4,8 @@ import { BuscarEmail } from '../services/usuario';
 import { autenticarToken, AuthRequest } from '../middlewares/authMiddleware';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { parseISO, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export const mainRouter = Router();
 
@@ -283,5 +285,83 @@ mainRouter.get('/barbearia/:id/profissionais', async (req, res) => {
     } catch (error) {
         console.error('Erro ao buscar barbeiros:', error);
         res.status(500).json({ error: 'Erro ao buscar barbeiros.' });
+    }
+});
+
+mainRouter.get('/barbeiro/:barbeiroId/horarios/:data', async (req, res) => {
+    const { barbeiroId, data } = req.params;
+
+    try {
+        // Buscar os agendamentos existentes para o barbeiro e a data específica
+        const agendamentos = await prisma.agendamento.findMany({
+            where: {
+                barbeiroId: barbeiroId,
+                data: data, // Considera a data passada como parâmetro
+            },
+        });
+
+        // Obter os horários de trabalho do barbeiro
+        const horarios = await prisma.horarioTrabalho.findMany({
+            where: {
+                barbeiroId: barbeiroId,
+            },
+            select: {
+                hora: true,
+                id: true
+            },
+        });
+
+        // Criar um array de horários ocupados (horários que já têm agendamentos)
+        const horariosOcupados = agendamentos.map(agendamento => agendamento.hora);
+
+        // Filtrar os horários disponíveis (remover os horários ocupados)
+        const horariosDisponiveis = horarios.filter(horario => !horariosOcupados.includes(horario.hora));
+
+        if (horariosDisponiveis.length === 0) {
+            return res.status(404).json({ error: 'Nenhum horário disponível para este barbeiro nesta data.' });
+        }
+
+        // Retornar os horários disponíveis
+        res.status(200).json(horariosDisponiveis);
+    } catch (error) {
+        console.error('Erro ao buscar os horários:', error);
+        res.status(500).json({ error: 'Erro ao buscar horários de trabalho do barbeiro.' });
+    }
+});
+
+mainRouter.post('/agendamentos', async (req, res) => {
+    const { usuarioId, barbeariaId, barbeiroId, servicoId, data, hora } = req.body;
+
+    try {
+        // Verificar se já existe um agendamento nesse horário para o barbeiro
+        const agendamentoExistente = await prisma.agendamento.findFirst({
+            where: {
+                barbeiroId,
+                data,
+                hora,
+            },
+        });
+
+        if (agendamentoExistente) {
+            return res.status(400).json({ error: 'Horário já agendado. Escolha outro horário.' });
+        }
+
+        // Criar o agendamento
+        const novoAgendamento = await prisma.agendamento.create({
+            data: {
+                usuarioId,
+                barbeariaId,
+                barbeiroId,
+                servicoId,
+                data,
+                hora,
+                status: 'Confirmado',
+            },
+        });
+
+        res.status(201).json(novoAgendamento);
+    } catch (error) {
+        console.error('Erro ao criar agendamento:', error);
+        res.status(500).json({ error: 'Erro ao criar agendamento.' });
     }
 });
