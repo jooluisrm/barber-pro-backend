@@ -288,6 +288,30 @@ mainRouter.get('/barbearia/:id/profissionais', async (req, res) => {
     }
 });
 
+mainRouter.get('/barbearia/:id/produtos', async (req, res) => {
+    const { id } = req.params; // Obtém o ID da barbearia da URL
+
+    try {
+        // Consulta os produtos da barbearia pelo id
+        const produtos = await prisma.produto.findMany({
+            where: {
+                barbeariaId: id, // Filtra os produtos pela barbearia
+            },
+        });
+
+        if (produtos.length === 0) {
+            return res.status(404).json({ error: 'Nenhum produto encontrado para esta barbearia.' });
+        }
+
+        // Retorna os produtos encontrados
+        res.status(200).json(produtos);
+    } catch (error) {
+        console.error('Erro ao buscar produtos:', error);
+        res.status(500).json({ error: 'Erro ao buscar produtos.' });
+    }
+});
+
+
 mainRouter.get('/barbeiro/:barbeiroId/horarios/:data', async (req, res) => {
     const { barbeiroId, data } = req.params;
 
