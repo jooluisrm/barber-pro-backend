@@ -54,12 +54,14 @@ model Barbeiro {
 }
 
 model HorarioTrabalho {
-  id         String @id @default(uuid())
+  id         String  @id @default(uuid())
   barbeiroId String
-  hora       String // Exemplo: "09:00", "09:30", "10:00", etc.
+  diaSemana  Int     // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+  hora       String  // Exemplo: "09:00", "09:30", "10:00", etc.
 
   barbeiro   Barbeiro @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
 }
+
 
 
 model Servico {

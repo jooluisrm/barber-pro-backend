@@ -400,22 +400,32 @@ mainRouter.get('/barbeiro/:barbeiroId/horarios/:data', async (req, res) => {
     const { barbeiroId, data } = req.params;
 
     try {
+        // Converter a data para um objeto Date e extrair o dia da semana (0 = Domingo, ..., 6 = Sábado)
+        const dataEscolhida = new Date(data);
+        const diaSemana = dataEscolhida.getDay(); 
+
+        // Buscar os horários de trabalho do barbeiro apenas para esse dia da semana
+        const horarios = await prisma.horarioTrabalho.findMany({
+            where: {
+                barbeiroId: barbeiroId,
+                diaSemana: diaSemana, // Filtra pelo dia da semana correspondente
+            },
+            select: {
+                hora: true,
+                id: true
+            },
+        });
+
+        // Se não houver horários cadastrados para esse dia da semana, retorna erro
+        if (horarios.length === 0) {
+            return res.status(404).json({ error: 'Nenhum horário cadastrado para este barbeiro neste dia da semana.' });
+        }
+
         // Buscar os agendamentos existentes para o barbeiro e a data específica
         const agendamentos = await prisma.agendamento.findMany({
             where: {
                 barbeiroId: barbeiroId,
                 data: data, // Considera a data passada como parâmetro
-            },
-        });
-
-        // Obter os horários de trabalho do barbeiro
-        const horarios = await prisma.horarioTrabalho.findMany({
-            where: {
-                barbeiroId: barbeiroId,
-            },
-            select: {
-                hora: true,
-                id: true
             },
         });
 
@@ -436,6 +446,7 @@ mainRouter.get('/barbeiro/:barbeiroId/horarios/:data', async (req, res) => {
         res.status(500).json({ error: 'Erro ao buscar horários de trabalho do barbeiro.' });
     }
 });
+
 
 mainRouter.post('/agendamentos', async (req, res) => {
     const { usuarioId, barbeariaId, barbeiroId, servicoId, data, hora } = req.body;
