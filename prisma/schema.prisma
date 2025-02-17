@@ -32,7 +32,7 @@ model Barbearia {
 model HorariosFuncionamentoBarbearia {
   id          String @id @default(uuid())
   barbeariaId String
-  diaSemana   String // Ex: "Segunda", "Terça", etc.
+  diaSemana   Int // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
   horaInicio  String // Ex: "10:00"
   horaFim     String // Ex: "17:00"
 
@@ -54,15 +54,13 @@ model Barbeiro {
 }
 
 model HorarioTrabalho {
-  id         String  @id @default(uuid())
+  id         String @id @default(uuid())
   barbeiroId String
-  diaSemana  Int     // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
-  hora       String  // Exemplo: "09:00", "09:30", "10:00", etc.
+  diaSemana  Int // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+  hora       String // Exemplo: "09:00", "09:30", "10:00", etc.
 
-  barbeiro   Barbeiro @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+  barbeiro Barbeiro @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
 }
-
-
 
 model Servico {
   id          String   @id @default(uuid())
@@ -89,21 +87,20 @@ model Produto {
 }
 
 model Agendamento {
-  id          String   @id @default(uuid())
+  id          String @id @default(uuid())
   usuarioId   String
   barbeariaId String
   barbeiroId  String
   servicoId   String
-  data        String   // Formato: "YYYY-MM-DD"
-  hora        String   // Formato: "HH:mm"
-  status      String   @default("Confirmado")
+  data        String // Formato: "YYYY-MM-DD"
+  hora        String // Formato: "HH:mm"
+  status      String @default("Confirmado")
 
   usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   barbeiro  Barbeiro  @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
   servico   Servico   @relation(fields: [servicoId], references: [id], onDelete: Cascade)
 }
-
 
 model Avaliacao {
   id          String   @id @default(uuid())
