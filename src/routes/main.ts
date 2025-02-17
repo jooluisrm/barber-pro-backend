@@ -572,3 +572,54 @@ mainRouter.post('/agendamentos', async (req, res) => {
         res.status(500).json({ error: 'Erro ao criar agendamento.' });
     }
 });
+
+mainRouter.get('/agendamentos/:usuarioId', async (req, res) => {
+    const { usuarioId } = req.params;
+
+    try {
+        // Buscar todos os agendamentos do usuário
+        const agendamentos = await prisma.agendamento.findMany({
+            where: { usuarioId },
+            select: {
+                id: true,
+                data: true,
+                hora: true,
+                status: true,
+                barbearia: {
+                    select: {
+                        id: true,
+                        nome: true,
+                        endereco: true,
+                        celular: true,
+                    }
+                },
+                barbeiro: {
+                    select: {
+                        id: true,
+                        nome: true,
+                    }
+                },
+                servico: {
+                    select: {
+                        id: true,
+                        nome: true,
+                        preco: true,
+                        duracao: true,
+                    }
+                }
+            },
+            orderBy: {
+                data: 'asc', // Ordena os agendamentos pela data
+            }
+        });
+
+        if (agendamentos.length === 0) {
+            return res.status(404).json({ error: "Nenhum agendamento encontrado para este usuário." });
+        }
+
+        res.status(200).json(agendamentos);
+    } catch (error) {
+        console.error("Erro ao buscar agendamentos:", error);
+        res.status(500).json({ error: "Erro ao buscar agendamentos." });
+    }
+});
