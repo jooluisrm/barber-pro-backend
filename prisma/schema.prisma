@@ -28,6 +28,7 @@ model Barbearia {
   avaliacoes            Avaliacao[]
   horariosFuncionamento HorariosFuncionamentoBarbearia[] // Relacionamento com os horários de funcionamento
   FormaPagamento        FormaPagamento[]
+  RedeSocial            RedeSocial[]
 }
 
 model HorariosFuncionamentoBarbearia {
@@ -44,6 +45,15 @@ model FormaPagamento {
   id          String @id @default(uuid()) // ID único da forma de pagamento
   barbeariaId String // Relacionamento com a barbearia
   tipo        String // Tipo de pagamento (ex: "Dinheiro", "Cartão", "PIX", etc.)
+
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade) // Relacionamento com a barbearia
+}
+
+model RedeSocial {
+  id          String @id @default(uuid()) // ID único para a rede social
+  barbeariaId String // Relacionamento com a barbearia
+  link        String // Link da rede social (ex: URL do perfil)
+  rede        String // Nome da rede social (ex: "Facebook", "Instagram", "Twitter", etc.)
 
   barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade) // Relacionamento com a barbearia
 }

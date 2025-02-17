@@ -458,6 +458,29 @@ mainRouter.get("/barbearia/:barbeariaId/formas-pagamento", async (req, res) => {
     }
 });
 
+mainRouter.get("/barbearia/:barbeariaId/redes-sociais", async (req, res) => {
+    const { barbeariaId } = req.params;
+
+    try {
+        const redesSociais = await prisma.redeSocial.findMany({
+            where: { barbeariaId },
+            select: {
+                id: true,
+                link: true,
+                rede: true,
+            },
+        });
+
+        if (redesSociais.length === 0) {
+            return res.status(404).json({ error: "Nenhuma rede social cadastrada para essa barbearia." });
+        }
+
+        res.status(200).json(redesSociais);
+    } catch (error) {
+        console.error("Erro ao buscar redes sociais:", error);
+        res.status(500).json({ error: "Erro ao buscar redes sociais." });
+    }
+});
 
 
 
