@@ -27,6 +27,7 @@ model Barbearia {
   agendamentos          Agendamento[]
   avaliacoes            Avaliacao[]
   horariosFuncionamento HorariosFuncionamentoBarbearia[] // Relacionamento com os horários de funcionamento
+  FormaPagamento        FormaPagamento[]
 }
 
 model HorariosFuncionamentoBarbearia {
@@ -37,6 +38,14 @@ model HorariosFuncionamentoBarbearia {
   horaFim     String // Ex: "17:00"
 
   barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+}
+
+model FormaPagamento {
+  id          String @id @default(uuid()) // ID único da forma de pagamento
+  barbeariaId String // Relacionamento com a barbearia
+  tipo        String // Tipo de pagamento (ex: "Dinheiro", "Cartão", "PIX", etc.)
+
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade) // Relacionamento com a barbearia
 }
 
 model Barbeiro {
