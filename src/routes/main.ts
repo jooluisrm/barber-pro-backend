@@ -483,13 +483,13 @@ mainRouter.get("/barbearia/:barbeariaId/redes-sociais", async (req, res) => {
 });
 
 
-
-mainRouter.get('/barbeiro/:barbeiroId/horarios/:data', async (req, res) => {
-    const { barbeiroId, data } = req.params;
+mainRouter.get('/barbeiro/:barbeiroId/horarios/:data/:hora', async (req, res) => { 
+    const { barbeiroId, data, hora } = req.params; 
 
     try {
-        // Converter a data para um objeto Date e extrair o dia da semana (0 = Domingo, ..., 6 = Sábado)
-        const dataEscolhida = new Date(data);
+        // 🔥 Garantir que a data seja interpretada corretamente no fuso local
+        const [ano, mes, dia] = data.split("-").map(Number);
+        const dataEscolhida = new Date(ano, mes - 1, dia); // Ajuste para o mês (0-indexado)
         const diaSemana = dataEscolhida.getDay(); 
 
         // Buscar os horários de trabalho do barbeiro apenas para esse dia da semana
@@ -513,7 +513,7 @@ mainRouter.get('/barbeiro/:barbeiroId/horarios/:data', async (req, res) => {
         const agendamentos = await prisma.agendamento.findMany({
             where: {
                 barbeiroId: barbeiroId,
-                data: data, // Considera a data passada como parâmetro
+                data: data, 
             },
         });
 
@@ -521,8 +521,26 @@ mainRouter.get('/barbeiro/:barbeiroId/horarios/:data', async (req, res) => {
         const horariosOcupados = agendamentos.map(agendamento => agendamento.hora);
 
         // Filtrar os horários disponíveis (remover os horários ocupados)
-        const horariosDisponiveis = horarios.filter(horario => !horariosOcupados.includes(horario.hora));
+        let horariosDisponiveis = horarios.filter(horario => !horariosOcupados.includes(horario.hora));
 
+        // 🔥 Se a data da requisição for hoje, remover horários que já passaram
+        const agora = new Date();
+        const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).toISOString().split("T")[0];
+
+        if (data === hoje) {
+            // Converter a hora passada na URL para minutos do dia
+            const [horaAtual, minutoAtual] = hora.split(":").map(Number);
+            const minutosAgora = horaAtual * 60 + minutoAtual;
+
+            // Filtrar horários que ainda não passaram
+            horariosDisponiveis = horariosDisponiveis.filter(horario => {
+                const [hora, minuto] = horario.hora.split(":").map(Number);
+                const minutosHorario = hora * 60 + minuto;
+                return minutosHorario > minutosAgora;
+            });
+        }
+
+        // Se não houver horários disponíveis, retorna erro
         if (horariosDisponiveis.length === 0) {
             return res.status(404).json({ error: 'Nenhum horário disponível para este barbeiro nesta data.' });
         }
@@ -534,6 +552,8 @@ mainRouter.get('/barbeiro/:barbeiroId/horarios/:data', async (req, res) => {
         res.status(500).json({ error: 'Erro ao buscar horários de trabalho do barbeiro.' });
     }
 });
+
+
 
 
 mainRouter.post('/agendamentos', async (req, res) => {
