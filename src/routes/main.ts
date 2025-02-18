@@ -518,7 +518,14 @@ mainRouter.get('/barbeiro/:barbeiroId/horarios/:data/:hora', async (req, res) =>
         });
 
         // Criar um array de horários ocupados (horários que já têm agendamentos)
-        const horariosOcupados = agendamentos.map(agendamento => agendamento.hora);
+        const horariosOcupados = agendamentos.map(agendamento => {
+            // Verificar o status do agendamento
+            if (agendamento.status !== 'Cancelado') {
+                return agendamento.hora;
+            }
+            // Se estiver cancelado, permitir que seja mostrado
+            return null; // Não bloqueia horário cancelado
+        }).filter(Boolean); // Remover valores nulos (cancelados)
 
         // Filtrar os horários disponíveis (remover os horários ocupados)
         let horariosDisponiveis = horarios.filter(horario => !horariosOcupados.includes(horario.hora));
@@ -556,11 +563,12 @@ mainRouter.get('/barbeiro/:barbeiroId/horarios/:data/:hora', async (req, res) =>
 
 
 
+
 mainRouter.post('/agendamentos', async (req, res) => {
     const { usuarioId, barbeariaId, barbeiroId, servicoId, data, hora } = req.body;
 
     try {
-        // Verificar se já existe um agendamento nesse horário para o barbeiro
+        // Verificar se já existe um agendamento nesse horário para o barbeiro, mas permite se estiver cancelado
         const agendamentoExistente = await prisma.agendamento.findFirst({
             where: {
                 barbeiroId,
@@ -569,11 +577,12 @@ mainRouter.post('/agendamentos', async (req, res) => {
             },
         });
 
-        if (agendamentoExistente) {
+        // Se existir um agendamento, verificar se o status é Cancelado e permitir agendamento nesse caso
+        if (agendamentoExistente && agendamentoExistente.status !== 'Cancelado') {
             return res.status(400).json({ error: 'Horário já agendado. Escolha outro horário.' });
         }
 
-        // Criar o agendamento
+        // Se o agendamento estiver cancelado, podemos criar um novo agendamento nesse horário
         const novoAgendamento = await prisma.agendamento.create({
             data: {
                 usuarioId,
@@ -582,7 +591,7 @@ mainRouter.post('/agendamentos', async (req, res) => {
                 servicoId,
                 data,
                 hora,
-                status: 'Confirmado',
+                status: 'Confirmado', // Agendamento será confirmado automaticamente
             },
         });
 
@@ -592,6 +601,7 @@ mainRouter.post('/agendamentos', async (req, res) => {
         res.status(500).json({ error: 'Erro ao criar agendamento.' });
     }
 });
+
 
 mainRouter.get('/agendamentos/:usuarioId', async (req, res) => {
     const { usuarioId } = req.params;
@@ -677,3 +687,36 @@ mainRouter.put('/agendamentos/:agendamentoId/cancelar', autenticarToken, async (
         res.status(500).json({ error: "Erro ao cancelar o agendamento." });
     }
 });
+
+mainRouter.delete('/agendamentos/:agendamentoId', autenticarToken, async (req, res) => {
+    const { agendamentoId } = req.params;
+
+    try {
+        // Verificar se o agendamento existe
+        const agendamento = await prisma.agendamento.findUnique({
+            where: { id: agendamentoId }
+        });
+
+        if (!agendamento) {
+            return res.status(404).json({ error: "Agendamento não encontrado." });
+        }
+
+        // Verificar se o status do agendamento é "Cancelado"
+        if (agendamento.status !== "Cancelado") {
+            return res.status(400).json({ error: "Este agendamento não pode ser deletado. Ele precisa estar com o status 'Cancelado'." });
+        }
+
+        // Deletar o agendamento
+        await prisma.agendamento.delete({
+            where: { id: agendamentoId }
+        });
+
+        res.status(200).json({
+            message: "Agendamento deletado com sucesso."
+        });
+    } catch (error) {
+        console.error("Erro ao deletar agendamento:", error);
+        res.status(500).json({ error: "Erro ao deletar o agendamento." });
+    }
+});
+
