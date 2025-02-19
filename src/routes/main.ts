@@ -257,6 +257,44 @@ mainRouter.get("/barbearias", async (req, res) => {
     }
 });
 
+mainRouter.get("/barbearia/buscar/:nome", async (req, res) => {
+    try {
+        const { nome } = req.params;
+
+        if (!nome || typeof nome !== "string") {
+            return res.status(400).json({ error: "O parâmetro 'nome' é obrigatório e deve ser uma string." });
+        }
+
+        const barbearias = await prisma.barbearia.findMany({
+            where: {
+                nome: {
+                    contains: nome // Ignora maiúsculas e minúsculas
+                },
+                status: {
+                    not: "Desativada",
+                },
+            },
+            select: {
+                id: true,
+                nome: true,
+                endereco: true,
+                celular: true,
+                telefone: true,
+                fotoPerfil: true,
+                descricao: true,
+                latitude: true,
+                longitude: true,
+                status: true,
+            },
+        });
+
+        return res.status(200).json(barbearias);
+    } catch (error) {
+        console.error("Erro ao buscar barbearias:", error);
+        return res.status(500).json({ error: "Erro interno do servidor." });
+    }
+});
+
 
 
 mainRouter.get("/barbearia/:nome", async (req, res) => {
