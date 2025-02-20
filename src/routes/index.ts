@@ -12,30 +12,6 @@ export const mainRouter = Router();
 
 mainRouter.use('/usuario', usuarioRoutes);
 
-mainRouter.get('/usuario/perfil', autenticarToken, async (req: any, res) => {
-    try {
-        const usuario = await prisma.usuario.findUnique({
-            where: { id: req.usuario.id }, // Pegamos o ID do token
-            select: {
-                id: true,
-                nome: true,
-                email: true,
-                telefone: true,
-                fotoPerfil: true
-            }
-        });
-
-        if (!usuario) {
-            return res.status(404).json({ error: 'Usuário não encontrado.' });
-        }
-
-        return res.status(200).json(usuario);
-    } catch (error) {
-        console.error('Erro ao buscar perfil:', error);
-        return res.status(500).json({ error: 'Erro interno do servidor.' });
-    }
-});
-
 mainRouter.patch('/usuario/perfil', autenticarToken, async (req: AuthRequest, res) => {
     try {
         const usuarioId = req.usuario?.id; // Obtém o ID corretamente

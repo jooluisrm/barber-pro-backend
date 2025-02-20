@@ -23,3 +23,16 @@ export const BuscarEmail = async (email: string) => {
     });
     return usuario;
 };
+
+export const BuscarPerfil = async (id: string) => {
+    return await prisma.usuario.findUnique({
+        where: { id }, // Localiza o usuário pelo ID
+        select: {
+            id: true,
+            nome: true,
+            email: true,
+            telefone: true,
+            fotoPerfil: true
+        }
+    });
+};

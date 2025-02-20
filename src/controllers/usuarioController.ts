@@ -90,3 +90,21 @@ export const loginUsuario = async (req: Request, res: Response) => {
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };
+
+export const obterPerfil = async (req: Request, res: Response) => {
+    try {
+        // ⚠️ Tipo AuthRequest para acessar o ID do usuário autenticado
+        const usuario = await usuarioService.BuscarPerfil((req as any).usuario?.id);
+
+        // Verifica se o usuário foi encontrado
+        if (!usuario) {
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        // Retorna os dados do usuário
+        return res.status(200).json(usuario);
+    } catch (error) {
+        console.error('Erro ao buscar perfil:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
