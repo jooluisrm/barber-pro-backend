@@ -432,7 +432,7 @@ mainRouter.get('/barbearia/:id/avaliacoes', async (req, res) => {
     }
 });
 
-mainRouter.post('/barbearia/:id/avaliacoes', async (req, res) => {
+mainRouter.post('/barbearia/:id/avaliacoes', autenticarToken, async (req, res) => {
     const { id } = req.params; // ID da barbearia
     const { usuarioId, nota, comentario } = req.body; // Dados do corpo da requisição
 
@@ -552,14 +552,14 @@ mainRouter.get("/barbearia/:barbeariaId/redes-sociais", async (req, res) => {
 });
 
 
-mainRouter.get('/barbeiro/:barbeiroId/horarios/:data/:hora', async (req, res) => { 
-    const { barbeiroId, data, hora } = req.params; 
+mainRouter.get('/barbeiro/:barbeiroId/horarios/:data/:hora', async (req, res) => {
+    const { barbeiroId, data, hora } = req.params;
 
     try {
         // 🔥 Garantir que a data seja interpretada corretamente no fuso local
         const [ano, mes, dia] = data.split("-").map(Number);
         const dataEscolhida = new Date(ano, mes - 1, dia); // Ajuste para o mês (0-indexado)
-        const diaSemana = dataEscolhida.getDay(); 
+        const diaSemana = dataEscolhida.getDay();
 
         // Buscar os horários de trabalho do barbeiro apenas para esse dia da semana
         const horarios = await prisma.horarioTrabalho.findMany({
@@ -582,7 +582,7 @@ mainRouter.get('/barbeiro/:barbeiroId/horarios/:data/:hora', async (req, res) =>
         const agendamentos = await prisma.agendamento.findMany({
             where: {
                 barbeiroId: barbeiroId,
-                data: data, 
+                data: data,
             },
         });
 
@@ -633,7 +633,7 @@ mainRouter.get('/barbeiro/:barbeiroId/horarios/:data/:hora', async (req, res) =>
 
 
 
-mainRouter.post('/agendamentos', async (req, res) => {
+mainRouter.post('/agendamentos', autenticarToken, async (req, res) => {
     const { usuarioId, barbeariaId, barbeiroId, servicoId, data, hora } = req.body;
 
     try {
@@ -672,7 +672,7 @@ mainRouter.post('/agendamentos', async (req, res) => {
 });
 
 
-mainRouter.get('/agendamentos/:usuarioId', async (req, res) => {
+mainRouter.get('/agendamentos/:usuarioId', autenticarToken, async (req, res) => {
     const { usuarioId } = req.params;
 
     try {
