@@ -1,21 +1,25 @@
+// src/services/usuario.ts
 import { prisma } from "../libs/prisma";
 
 type CreateUserProps = {
     nome: string;
     email: string;
     senha: string;
-}
+    telefone: string;
+};
 
-export const createUser = async ({ nome, email, senha }: CreateUserProps) => {
+// Serviço para criar um novo usuário
+export const createUser = async ({ nome, email, senha, telefone }: CreateUserProps) => {
     const user = await prisma.usuario.create({
-        data: { nome, email, senha }
+        data: { nome, email, senha, telefone }
     });
     return user;
-}
+};
 
+// Serviço para buscar usuário por e-mail
 export const BuscarEmail = async (email: string) => {
     const usuario = await prisma.usuario.findUnique({
         where: { email },
     });
     return usuario;
-}
+};
