@@ -9,31 +9,6 @@ export const mainRouter = Router();
 mainRouter.use('/usuario', usuarioRoutes);
 mainRouter.use('/barbearia', barbeariaRoutes);
 
-mainRouter.get("/barbearia/:barbeariaId/redes-sociais", async (req, res) => {
-    const { barbeariaId } = req.params;
-
-    try {
-        const redesSociais = await prisma.redeSocial.findMany({
-            where: { barbeariaId },
-            select: {
-                id: true,
-                link: true,
-                rede: true,
-            },
-        });
-
-        if (redesSociais.length === 0) {
-            return res.status(404).json({ error: "Nenhuma rede social cadastrada para essa barbearia." });
-        }
-
-        res.status(200).json(redesSociais);
-    } catch (error) {
-        console.error("Erro ao buscar redes sociais:", error);
-        res.status(500).json({ error: "Erro ao buscar redes sociais." });
-    }
-});
-
-
 mainRouter.get('/barbeiro/:barbeiroId/horarios/:data/:hora', async (req, res) => {
     const { barbeiroId, data, hora } = req.params;
 
@@ -111,10 +86,6 @@ mainRouter.get('/barbeiro/:barbeiroId/horarios/:data/:hora', async (req, res) =>
     }
 });
 
-
-
-
-
 mainRouter.post('/agendamentos', autenticarToken, async (req, res) => {
     const { usuarioId, barbeariaId, barbeiroId, servicoId, data, hora } = req.body;
 
@@ -152,7 +123,6 @@ mainRouter.post('/agendamentos', autenticarToken, async (req, res) => {
         res.status(500).json({ error: 'Erro ao criar agendamento.' });
     }
 });
-
 
 mainRouter.get('/agendamentos/:usuarioId', autenticarToken, async (req, res) => {
     const { usuarioId } = req.params;

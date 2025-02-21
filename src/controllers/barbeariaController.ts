@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, ObterFormasPagamento, ObterHorariosFuncionamento } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -198,5 +198,23 @@ export const obterFormasPagamento = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Erro ao buscar formas de pagamento:', error);
         return res.status(500).json({ error: 'Erro ao buscar formas de pagamento.' });
+    }
+};
+
+export const obterRedesSociais = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+
+        // Chama o Service para obter as redes sociais
+        const redesSociais = await ObterRedesSociais(barbeariaId);
+
+        if (redesSociais.length === 0) {
+            return res.status(404).json({ error: 'Nenhuma rede social cadastrada para essa barbearia.' });
+        }
+
+        return res.status(200).json(redesSociais);
+    } catch (error) {
+        console.error('Erro ao buscar redes sociais:', error);
+        return res.status(500).json({ error: 'Erro ao buscar redes sociais.' });
     }
 };

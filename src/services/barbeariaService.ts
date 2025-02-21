@@ -193,3 +193,15 @@ export const ObterFormasPagamento = async (barbeariaId: string) => {
         },
     });
 };
+
+export const ObterRedesSociais = async (barbeariaId: string) => {
+    // Buscar todas as redes sociais da barbearia
+    return await prisma.redeSocial.findMany({
+        where: { barbeariaId },
+        select: {
+            id: true,
+            link: true,
+            rede: true, // Nome da rede social (ex: "Instagram", "Facebook", etc.)
+        },
+    });
+};
