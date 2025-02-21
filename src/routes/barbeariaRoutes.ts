@@ -7,8 +7,10 @@ import {
     obterServicosPorBarbearia,
     obterBarbeirosPorBarbearia,
     obterProdutosPorBarbearia,
-    obterAvaliacoesPorBarbearia
+    obterAvaliacoesPorBarbearia,
+    criarAvaliacao
 } from '../controllers/barbeariaController';
+import { autenticarToken } from '../middlewares/authMiddleware';
 
 const router = express.Router();
 
@@ -20,5 +22,6 @@ router.get('/:id/servicos', obterServicosPorBarbearia);
 router.get('/:id/profissionais', obterBarbeirosPorBarbearia);
 router.get('/:id/produtos', obterProdutosPorBarbearia);
 router.get('/:id/avaliacoes', obterAvaliacoesPorBarbearia);
+router.post('/:id/avaliacoes', autenticarToken, criarAvaliacao);
 
 export default router;

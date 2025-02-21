@@ -9,37 +9,6 @@ export const mainRouter = Router();
 mainRouter.use('/usuario', usuarioRoutes);
 mainRouter.use('/barbearia', barbeariaRoutes);
 
-mainRouter.post('/barbearia/:id/avaliacoes', autenticarToken, async (req, res) => {
-    const { id } = req.params; // ID da barbearia
-    const { usuarioId, nota, comentario } = req.body; // Dados do corpo da requisição
-
-    // Validação dos dados recebidos
-    if (!usuarioId || !nota) {
-        return res.status(400).json({ error: "Campos obrigatórios não preenchidos!" });
-    }
-
-    try {
-        // Criando a avaliação no banco de dados
-        const avaliacao = await prisma.avaliacao.create({
-            data: {
-                usuarioId,
-                barbeariaId: id,
-                nota,
-                comentario: comentario || null, // Comentário é opcional
-            },
-        });
-
-        res.status(201).json({
-            message: "Avaliação cadastrada com sucesso!",
-            id: avaliacao.id,
-        });
-
-    } catch (error) {
-        console.error("Erro ao criar avaliação:", error);
-        res.status(500).json({ error: "Erro ao salvar avaliação." });
-    }
-});
-
 mainRouter.get("/barbearia/:barbeariaId/horarios", async (req, res) => {
     const { barbeariaId } = req.params;
 

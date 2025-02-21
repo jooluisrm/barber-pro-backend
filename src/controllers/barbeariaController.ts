@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -139,5 +139,28 @@ export const obterAvaliacoesPorBarbearia = async (req: Request, res: Response) =
     } catch (error) {
         console.error('Erro ao buscar avaliações:', error);
         return res.status(500).json({ error: 'Erro ao buscar avaliações.' });
+    }
+};
+
+export const criarAvaliacao = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params; // ID da barbearia
+        const { usuarioId, nota, comentario } = req.body; // Dados do corpo da requisição
+
+        // Validação dos dados recebidos
+        if (!usuarioId || !nota) {
+            return res.status(400).json({ error: 'Campos obrigatórios não preenchidos!' });
+        }
+
+        // Chama o Service para criar a avaliação
+        const avaliacao = await CriarAvaliacao(id, usuarioId, nota, comentario);
+
+        return res.status(201).json({
+            message: 'Avaliação cadastrada com sucesso!',
+            id: avaliacao.id,
+        });
+    } catch (error) {
+        console.error('Erro ao criar avaliação:', error);
+        return res.status(500).json({ error: 'Erro ao salvar avaliação.' });
     }
 };

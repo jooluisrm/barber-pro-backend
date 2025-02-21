@@ -143,3 +143,14 @@ export const BuscarAvaliacoesPorBarbearia = async (barbeariaId: string) => {
         }
     });
 };
+
+export const CriarAvaliacao = async (barbeariaId: string, usuarioId: string, nota: number, comentario?: string) => {
+    return await prisma.avaliacao.create({
+        data: {
+            usuarioId,
+            barbeariaId,
+            nota,
+            comentario: comentario || null, // Comentário é opcional
+        },
+    });
+};
