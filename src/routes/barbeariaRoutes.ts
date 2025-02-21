@@ -1,8 +1,9 @@
 import express from 'express';
-import { obterBarbeariasProximas } from '../controllers/barbeariaController';
+import { obterBarbeariasAtivas, obterBarbeariasProximas } from '../controllers/barbeariaController';
 
 const router = express.Router();
 
 router.get('/proxima', obterBarbeariasProximas);
+router.get('/', obterBarbeariasAtivas);
 
 export default router;

@@ -9,36 +9,6 @@ export const mainRouter = Router();
 mainRouter.use('/usuario', usuarioRoutes);
 mainRouter.use('/barbearia', barbeariaRoutes);
 
-mainRouter.get("/barbearias", async (req, res) => {
-    try {
-        // Buscar todas as barbearias ativas (que não estão "Desativadas")
-        const barbearias = await prisma.barbearia.findMany({
-            where: {
-                status: {
-                    not: "Desativada"
-                }
-            },
-            select: {
-                id: true,
-                nome: true,
-                endereco: true,
-                celular: true,
-                telefone: true,
-                fotoPerfil: true,
-                descricao: true,
-                latitude: true,
-                longitude: true,
-                status: true
-            }
-        });
-
-        return res.status(200).json(barbearias);
-    } catch (error) {
-        console.error("Erro ao buscar barbearias:", error);
-        return res.status(500).json({ error: "Erro interno do servidor." });
-    }
-});
-
 mainRouter.get("/barbearia/buscar/:nome", async (req, res) => {
     try {
         const { nome } = req.params;
