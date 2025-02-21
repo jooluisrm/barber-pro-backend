@@ -91,3 +91,11 @@ export const BuscarBarbeariasPorNome = async (nome: string) => {
         },
     });
 };
+
+export const BuscarBarbeariaPorNome = async (nome: string) => {
+    return await prisma.barbearia.findUnique({
+        where: {
+            nome,
+        },
+    });
+};

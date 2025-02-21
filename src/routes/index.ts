@@ -9,27 +9,6 @@ export const mainRouter = Router();
 mainRouter.use('/usuario', usuarioRoutes);
 mainRouter.use('/barbearia', barbeariaRoutes);
 
-mainRouter.get("/barbearia/:nome", async (req, res) => {
-    try {
-        const { nome } = req.params;
-
-        const barbearia = await prisma.barbearia.findUnique({
-            where: {
-                nome,
-            },
-        });
-
-        if (!barbearia) {
-            return res.status(404).json({ error: "Barbearia não encontrada" });
-        }
-
-        return res.json(barbearia);
-    } catch (error) {
-        console.error("Erro ao buscar barbearia:", error);
-        return res.status(500).json({ error: "Erro interno do servidor" });
-    }
-});
-
 // Rota para buscar os serviços de uma barbearia específica
 mainRouter.get('/barbearia/:id/servicos', async (req, res) => {
     const { id } = req.params; // Obtém o ID da barbearia da URL
@@ -500,4 +479,3 @@ mainRouter.delete('/agendamentos/:agendamentoId', autenticarToken, async (req, r
         res.status(500).json({ error: "Erro ao deletar o agendamento." });
     }
 });
-

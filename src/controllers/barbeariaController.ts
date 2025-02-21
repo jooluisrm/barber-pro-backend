@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas } from '../services/barbeariaService';
+import { BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -45,5 +45,22 @@ export const obterBarbeariasPorNome = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Erro ao buscar barbearias:", error);
         return res.status(500).json({ error: "Erro interno do servidor." });
+    }
+};
+
+export const obterBarbeariaPorNome = async (req: Request, res: Response) => {
+    try {
+        const { nome } = req.params;
+
+        const barbearia = await BuscarBarbeariaPorNome(nome);
+
+        if (!barbearia) {
+            return res.status(404).json({ error: "Barbearia não encontrada" });
+        }
+
+        return res.json(barbearia);
+    } catch (error) {
+        console.error("Erro ao buscar barbearia:", error);
+        return res.status(500).json({ error: "Erro interno do servidor" });
     }
 };
