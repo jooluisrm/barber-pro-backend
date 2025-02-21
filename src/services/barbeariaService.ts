@@ -65,3 +65,29 @@ export const BuscarBarbeariasAtivas = async () => {
         }
     });
 };
+
+export const BuscarBarbeariasPorNome = async (nome: string) => {
+    // Buscar barbearias cujo nome contém o termo pesquisado e que não estão desativadas
+    return await prisma.barbearia.findMany({
+        where: {
+            nome: {
+                contains: nome, // Ignora maiúsculas e minúsculas
+            },
+            status: {
+                not: "Desativada",
+            },
+        },
+        select: {
+            id: true,
+            nome: true,
+            endereco: true,
+            celular: true,
+            telefone: true,
+            fotoPerfil: true,
+            descricao: true,
+            latitude: true,
+            longitude: true,
+            status: true,
+        },
+    });
+};

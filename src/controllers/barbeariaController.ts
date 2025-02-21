@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarBarbeariasAtivas, BuscarBarbeariasProximas } from '../services/barbeariaService';
+import { BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -25,6 +25,22 @@ export const obterBarbeariasProximas = async (req: Request, res: Response) => {
 export const obterBarbeariasAtivas = async (req: Request, res: Response) => {
     try {
         const barbearias = await BuscarBarbeariasAtivas();
+        return res.status(200).json(barbearias);
+    } catch (error) {
+        console.error("Erro ao buscar barbearias:", error);
+        return res.status(500).json({ error: "Erro interno do servidor." });
+    }
+};
+
+export const obterBarbeariasPorNome = async (req: Request, res: Response) => {
+    try {
+        const { nome } = req.params;
+
+        if (!nome || typeof nome !== "string") {
+            return res.status(400).json({ error: "O parâmetro 'nome' é obrigatório e deve ser uma string." });
+        }
+
+        const barbearias = await BuscarBarbeariasPorNome(nome);
         return res.status(200).json(barbearias);
     } catch (error) {
         console.error("Erro ao buscar barbearias:", error);
