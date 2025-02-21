@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, ObterHorariosFuncionamento } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -162,5 +162,23 @@ export const criarAvaliacao = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Erro ao criar avaliação:', error);
         return res.status(500).json({ error: 'Erro ao salvar avaliação.' });
+    }
+};
+
+export const obterHorariosFuncionamento = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+
+        // Chama o Service para obter os horários formatados
+        const horarios = await ObterHorariosFuncionamento(barbeariaId);
+
+        if (horarios.length === 0) {
+            return res.status(404).json({ error: 'Nenhum horário de funcionamento cadastrado para essa barbearia.' });
+        }
+
+        return res.status(200).json(horarios);
+    } catch (error) {
+        console.error('Erro ao buscar horários de funcionamento:', error);
+        return res.status(500).json({ error: 'Erro ao buscar horários de funcionamento.' });
     }
 };

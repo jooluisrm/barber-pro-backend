@@ -154,3 +154,31 @@ export const CriarAvaliacao = async (barbeariaId: string, usuarioId: string, not
         },
     });
 };
+
+export const ObterHorariosFuncionamento = async (barbeariaId: string) => {
+    // Buscar todos os horários de funcionamento da barbearia
+    const horarios = await prisma.horariosFuncionamentoBarbearia.findMany({
+        where: { barbeariaId },
+        select: {
+            id: true,
+            diaSemana: true,
+            horaInicio: true,
+            horaFim: true,
+        },
+        orderBy: {
+            diaSemana: 'asc', // Ordena do domingo (0) ao sábado (6)
+        },
+    });
+
+    // Mapeia os números dos dias para os nomes correspondentes
+    const diasSemanaMap = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+    // Formata os horários antes de retorná-los
+    return horarios.map((horario) => ({
+        id: horario.id,
+        diaSemanaNumero: horario.diaSemana, // Retorna o número do dia da semana
+        diaSemanaNome: diasSemanaMap[horario.diaSemana], // Converte número para nome do dia
+        horaInicio: horario.horaInicio,
+        horaFim: horario.horaFim,
+    }));
+};

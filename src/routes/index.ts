@@ -9,46 +9,6 @@ export const mainRouter = Router();
 mainRouter.use('/usuario', usuarioRoutes);
 mainRouter.use('/barbearia', barbeariaRoutes);
 
-mainRouter.get("/barbearia/:barbeariaId/horarios", async (req, res) => {
-    const { barbeariaId } = req.params;
-
-    try {
-        // Buscar todos os horários de funcionamento da barbearia
-        const horarios = await prisma.horariosFuncionamentoBarbearia.findMany({
-            where: { barbeariaId },
-            select: {
-                id: true,
-                diaSemana: true,
-                horaInicio: true,
-                horaFim: true,
-            },
-            orderBy: {
-                diaSemana: "asc", // Ordena do domingo (0) ao sábado (6)
-            },
-        });
-
-        if (horarios.length === 0) {
-            return res.status(404).json({ error: "Nenhum horário de funcionamento cadastrado para essa barbearia." });
-        }
-
-        // Mapeia os números dos dias para os nomes correspondentes
-        const diasSemanaMap = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-
-        const horariosFormatados = horarios.map(horario => ({
-            id: horario.id,
-            diaSemanaNumero: horario.diaSemana, // Retorna o número do dia da semana
-            diaSemanaNome: diasSemanaMap[horario.diaSemana], // Converte número para nome do dia
-            horaInicio: horario.horaInicio,
-            horaFim: horario.horaFim,
-        }));
-
-        res.status(200).json(horariosFormatados);
-    } catch (error) {
-        console.error("Erro ao buscar horários de funcionamento:", error);
-        res.status(500).json({ error: "Erro ao buscar horários de funcionamento." });
-    }
-});
-
 mainRouter.get("/barbearia/:barbeariaId/formas-pagamento", async (req, res) => {
     const { barbeariaId } = req.params;
 
