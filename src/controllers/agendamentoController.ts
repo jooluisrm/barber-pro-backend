@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAgendamentosUsuario, CancelarAgendamento, CriarAgendamento } from '../services/agendamentoService';
+import { BuscarAgendamentosUsuario, CancelarAgendamento, CriarAgendamento, DeletarAgendamento } from '../services/agendamentoService';
 
 export const criarAgendamento = async (req: Request, res: Response) => {
     try {
@@ -51,5 +51,31 @@ export const cancelarAgendamento = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Erro ao cancelar agendamento:", error);
         return res.status(500).json({ error: "Erro ao cancelar o agendamento." });
+    }
+};
+
+export const deletarAgendamento = async (req: Request, res: Response) => {
+    try {
+        const { agendamentoId } = req.params;
+
+        // Chama o Service para deletar o agendamento
+        const agendamentoDeletado = await DeletarAgendamento(agendamentoId);
+
+        if (!agendamentoDeletado) {
+            return res.status(404).json({ error: "Agendamento não encontrado." });
+        }
+
+        return res.status(200).json({
+            message: "Agendamento deletado com sucesso."
+        });
+    } catch (error: any) {
+        console.error("Erro ao deletar agendamento:", error);
+
+        // Verifica se o erro foi causado pelo status não ser "Cancelado"
+        if (error.message === "Este agendamento não pode ser deletado. Ele precisa estar com o status 'Cancelado'.") {
+            return res.status(400).json({ error: error.message });
+        }
+
+        return res.status(500).json({ error: "Erro ao deletar o agendamento." });
     }
 };

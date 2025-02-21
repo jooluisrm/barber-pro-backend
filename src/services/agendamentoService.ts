@@ -94,3 +94,26 @@ export const CancelarAgendamento = async (agendamentoId: string) => {
 
     return agendamentoCancelado;
 };
+
+export const DeletarAgendamento = async (agendamentoId: string) => {
+    // Verificar se o agendamento existe
+    const agendamento = await prisma.agendamento.findUnique({
+        where: { id: agendamentoId }
+    });
+
+    if (!agendamento) {
+        return null;
+    }
+
+    // Verificar se o status do agendamento é "Cancelado"
+    if (agendamento.status !== "Cancelado") {
+        throw new Error("Este agendamento não pode ser deletado. Ele precisa estar com o status 'Cancelado'.");
+    }
+
+    // Deletar o agendamento
+    await prisma.agendamento.delete({
+        where: { id: agendamentoId }
+    });
+
+    return true;
+};
