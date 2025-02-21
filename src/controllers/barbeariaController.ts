@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarServicosPorBarbearia } from '../services/barbeariaService';
+import { BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarServicosPorBarbearia } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -79,5 +79,22 @@ export const obterServicosPorBarbearia = async (req: Request, res: Response) => 
     } catch (error) {
         console.error('Erro ao buscar serviços:', error);
         return res.status(500).json({ error: 'Erro ao buscar serviços.' });
+    }
+};
+
+export const obterBarbeirosPorBarbearia = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const barbeiros = await BuscarBarbeirosPorBarbearia(id);
+
+        if (barbeiros.length === 0) {
+            return res.status(404).json({ error: 'Nenhum barbeiro encontrado para esta barbearia.' });
+        }
+
+        return res.status(200).json(barbeiros);
+    } catch (error) {
+        console.error('Erro ao buscar barbeiros:', error);
+        return res.status(500).json({ error: 'Erro ao buscar barbeiros.' });
     }
 };

@@ -9,30 +9,6 @@ export const mainRouter = Router();
 mainRouter.use('/usuario', usuarioRoutes);
 mainRouter.use('/barbearia', barbeariaRoutes);
 
-// Rota para obter os barbeiros de uma barbearia específica
-mainRouter.get('/barbearia/:id/profissionais', async (req, res) => {
-    const { id } = req.params; // Obtém o ID da barbearia da URL
-
-    try {
-        // Consulta os barbeiros da barbearia pelo id
-        const barbeiros = await prisma.barbeiro.findMany({
-            where: {
-                barbeariaId: id, // Filtra os barbeiros pela barbearia
-            },
-        });
-
-        if (barbeiros.length === 0) {
-            return res.status(404).json({ error: 'Nenhum barbeiro encontrado para esta barbearia.' });
-        }
-
-        // Retorna os barbeiros encontrados
-        res.status(200).json(barbeiros);
-    } catch (error) {
-        console.error('Erro ao buscar barbeiros:', error);
-        res.status(500).json({ error: 'Erro ao buscar barbeiros.' });
-    }
-});
-
 mainRouter.get('/barbearia/:id/produtos', async (req, res) => {
     const { id } = req.params; // Obtém o ID da barbearia da URL
 

@@ -107,3 +107,11 @@ export const BuscarServicosPorBarbearia = async (barbeariaId: string) => {
         },
     });
 };
+
+export const BuscarBarbeirosPorBarbearia = async (barbeariaId: string) => {
+    return await prisma.barbeiro.findMany({
+        where: {
+            barbeariaId, // Filtra os barbeiros pela barbearia
+        },
+    });
+};
