@@ -108,3 +108,26 @@ export const obterPerfil = async (req: Request, res: Response) => {
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };
+
+export const atualizarPerfil = async (req: Request, res: Response) => {
+    try {
+        const usuarioId = (req as any).usuario?.id;
+        const { nome, email, telefone } = req.body;
+
+        if (!usuarioId) {
+            return res.status(401).json({ error: 'Usuário não autenticado.' });
+        }
+
+        if (!nome && !email && !telefone) {
+            return res.status(400).json({ error: 'Envie pelo menos um campo para atualização.' });
+        }
+
+        const usuarioAtualizado = await usuarioService.AtualizarPerfil(usuarioId, nome, email, telefone);
+
+        return res.json({ message: 'Perfil atualizado com sucesso!', usuario: usuarioAtualizado });
+
+    } catch (error) {
+        console.error('Erro ao atualizar perfil:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};

@@ -36,3 +36,23 @@ export const BuscarPerfil = async (id: string) => {
         }
     });
 };
+
+export const AtualizarPerfil = async (usuarioId: string, nome?: string, email?: string, telefone?: string) => {
+    if (email) {
+        const emailExistente = await prisma.usuario.findUnique({ where: { email } });
+        if (emailExistente && emailExistente.id !== usuarioId) {
+            throw new Error('Este e-mail já está em uso.');
+        }
+    }
+
+    const usuarioAtualizado = await prisma.usuario.update({
+        where: { id: usuarioId },
+        data: {
+            nome,
+            email,
+            telefone
+        }
+    });
+
+    return usuarioAtualizado;
+};
