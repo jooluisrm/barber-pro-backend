@@ -4,50 +4,14 @@ import { autenticarToken } from '../middlewares/authMiddleware';
 import usuarioRoutes from './usuarioRoutes';
 import barbeariaRoutes from './barbeariaRoutes';
 import barbeiroRoutes from './barbeiroRoutes';
+import agendamentoRoutes from './agendamentoRoutes';
 
 export const mainRouter = Router();
 
 mainRouter.use('/usuario', usuarioRoutes);
 mainRouter.use('/barbearia', barbeariaRoutes);
 mainRouter.use('/barbeiro', barbeiroRoutes);
-
-mainRouter.post('/agendamentos', autenticarToken, async (req, res) => {
-    const { usuarioId, barbeariaId, barbeiroId, servicoId, data, hora } = req.body;
-
-    try {
-        // Verificar se já existe um agendamento nesse horário para o barbeiro, mas permite se estiver cancelado
-        const agendamentoExistente = await prisma.agendamento.findFirst({
-            where: {
-                barbeiroId,
-                data,
-                hora,
-            },
-        });
-
-        // Se existir um agendamento, verificar se o status é Cancelado e permitir agendamento nesse caso
-        if (agendamentoExistente && agendamentoExistente.status !== 'Cancelado') {
-            return res.status(400).json({ error: 'Horário já agendado. Escolha outro horário.' });
-        }
-
-        // Se o agendamento estiver cancelado, podemos criar um novo agendamento nesse horário
-        const novoAgendamento = await prisma.agendamento.create({
-            data: {
-                usuarioId,
-                barbeariaId,
-                barbeiroId,
-                servicoId,
-                data,
-                hora,
-                status: 'Confirmado', // Agendamento será confirmado automaticamente
-            },
-        });
-
-        res.status(201).json(novoAgendamento);
-    } catch (error) {
-        console.error('Erro ao criar agendamento:', error);
-        res.status(500).json({ error: 'Erro ao criar agendamento.' });
-    }
-});
+mainRouter.use('/agendamentos', agendamentoRoutes);
 
 mainRouter.get('/agendamentos/:usuarioId', autenticarToken, async (req, res) => {
     const { usuarioId } = req.params;
