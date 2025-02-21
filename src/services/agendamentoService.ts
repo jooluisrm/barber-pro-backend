@@ -30,3 +30,43 @@ export const CriarAgendamento = async (usuarioId: string, barbeariaId: string, b
 
     return novoAgendamento;
 };
+
+export const BuscarAgendamentosUsuario = async (usuarioId: string) => {
+    // Buscar todos os agendamentos do usuário
+    const agendamentos = await prisma.agendamento.findMany({
+        where: { usuarioId },
+        select: {
+            id: true,
+            data: true,
+            hora: true,
+            status: true,
+            barbearia: {
+                select: {
+                    id: true,
+                    nome: true,
+                    endereco: true,
+                    celular: true,
+                }
+            },
+            barbeiro: {
+                select: {
+                    id: true,
+                    nome: true,
+                }
+            },
+            servico: {
+                select: {
+                    id: true,
+                    nome: true,
+                    preco: true,
+                    duracao: true,
+                }
+            }
+        },
+        orderBy: {
+            data: 'asc', // Ordena os agendamentos pela data
+        }
+    });
+
+    return agendamentos;
+};
