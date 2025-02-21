@@ -2,68 +2,12 @@ import { Router } from 'express';
 import { prisma } from '../libs/prisma';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import usuarioRoutes from './usuarioRoutes';
+import barbeariaRoutes from './barbeariaRoutes';
 
 export const mainRouter = Router();
 
 mainRouter.use('/usuario', usuarioRoutes);
-
-mainRouter.get("/barbearia/proxima", async (req, res) => {
-    try {
-        const { latitude, longitude, raio = 50 } = req.query;
-
-        if (!latitude || !longitude) {
-            return res.status(400).json({ error: "Latitude e longitude são obrigatórios." });
-        }
-
-        const latUser = parseFloat(latitude as string);
-        const lonUser = parseFloat(longitude as string);
-        const raioKm = parseFloat(raio as string);
-
-        // Buscar todas as barbearias sem expor dados sensíveis
-        const barbearias = await prisma.barbearia.findMany({
-            select: {
-                id: true,
-                nome: true,
-                endereco: true,
-                celular: true,
-                telefone: true,
-                fotoPerfil: true,
-                descricao: true,
-                latitude: true,
-                longitude: true,
-                status: true
-            }
-        });
-
-        // Calcular distância e filtrar barbearias dentro do raio desejado
-        const barbeariasProximas = barbearias
-            .map(barbearia => ({
-                ...barbearia,
-                distancia: calcularDistancia(latUser, lonUser, barbearia.latitude, barbearia.longitude)
-            }))
-            .filter(barbearia => barbearia.distancia <= raioKm)
-            .sort((a, b) => a.distancia - b.distancia);
-
-        return res.json(barbeariasProximas);
-    } catch (error) {
-        console.error("Erro ao buscar barbearias próximas:", error);
-        return res.status(500).json({ error: "Erro interno do servidor." });
-    }
-});
-
-
-// Função para calcular a distância entre duas coordenadas usando a fórmula de Haversine
-function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number) {
-    const R = 6371; // Raio médio da Terra em km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-}
+mainRouter.use('/barbearia', barbeariaRoutes);
 
 mainRouter.get("/barbearias", async (req, res) => {
     try {

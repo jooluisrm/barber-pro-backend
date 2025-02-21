@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import * as usuarioService from '../services/usuario';
+import * as usuarioService from '../services/usuarioService';
 
 // Controlador para registro de novo usuário
 export const registrarUsuario = async (req: Request, res: Response) => {
