@@ -70,3 +70,27 @@ export const BuscarAgendamentosUsuario = async (usuarioId: string) => {
 
     return agendamentos;
 };
+
+export const CancelarAgendamento = async (agendamentoId: string) => {
+    // Verificar se o agendamento existe
+    const agendamento = await prisma.agendamento.findUnique({
+        where: { id: agendamentoId }
+    });
+
+    if (!agendamento) {
+        return null;
+    }
+
+    // Verificar se o status do agendamento é diferente de "Cancelado" e "Feito"
+    if (agendamento.status === "Cancelado" || agendamento.status === "Feito") {
+        throw new Error("Este agendamento não pode ser cancelado.");
+    }
+
+    // Atualizar o status para "Cancelado"
+    const agendamentoCancelado = await prisma.agendamento.update({
+        where: { id: agendamentoId },
+        data: { status: "Cancelado" }
+    });
+
+    return agendamentoCancelado;
+};
