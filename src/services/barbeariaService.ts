@@ -171,7 +171,7 @@ export const ObterHorariosFuncionamento = async (barbeariaId: string) => {
     });
 
     // Mapeia os números dos dias para os nomes correspondentes
-    const diasSemanaMap = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    const diasSemanaMap = ['Domingo', 'Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado'];
 
     // Formata os horários antes de retorná-los
     return horarios.map((horario) => ({
@@ -181,4 +181,15 @@ export const ObterHorariosFuncionamento = async (barbeariaId: string) => {
         horaInicio: horario.horaInicio,
         horaFim: horario.horaFim,
     }));
+};
+
+export const ObterFormasPagamento = async (barbeariaId: string) => {
+    // Buscar todas as formas de pagamento da barbearia
+    return await prisma.formaPagamento.findMany({
+        where: { barbeariaId },
+        select: {
+            id: true,
+            tipo: true, // Tipo da forma de pagamento (ex: "Dinheiro", "Cartão", etc.)
+        },
+    });
 };

@@ -9,30 +9,6 @@ export const mainRouter = Router();
 mainRouter.use('/usuario', usuarioRoutes);
 mainRouter.use('/barbearia', barbeariaRoutes);
 
-mainRouter.get("/barbearia/:barbeariaId/formas-pagamento", async (req, res) => {
-    const { barbeariaId } = req.params;
-
-    try {
-        // Buscar todas as formas de pagamento da barbearia
-        const formasPagamento = await prisma.formaPagamento.findMany({
-            where: { barbeariaId },
-            select: {
-                id: true,
-                tipo: true, // Tipo da forma de pagamento (ex: "Dinheiro", "Cartão", etc.)
-            },
-        });
-
-        if (formasPagamento.length === 0) {
-            return res.status(404).json({ error: "Nenhuma forma de pagamento cadastrada para essa barbearia." });
-        }
-
-        res.status(200).json(formasPagamento);
-    } catch (error) {
-        console.error("Erro ao buscar formas de pagamento:", error);
-        res.status(500).json({ error: "Erro ao buscar formas de pagamento." });
-    }
-});
-
 mainRouter.get("/barbearia/:barbeariaId/redes-sociais", async (req, res) => {
     const { barbeariaId } = req.params;
 

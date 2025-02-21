@@ -9,7 +9,8 @@ import {
     obterProdutosPorBarbearia,
     obterAvaliacoesPorBarbearia,
     criarAvaliacao,
-    obterHorariosFuncionamento
+    obterHorariosFuncionamento,
+    obterFormasPagamento
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 
@@ -25,5 +26,6 @@ router.get('/:id/produtos', obterProdutosPorBarbearia);
 router.get('/:id/avaliacoes', obterAvaliacoesPorBarbearia);
 router.post('/:id/avaliacoes', autenticarToken, criarAvaliacao);
 router.get('/:barbeariaId/horarios', obterHorariosFuncionamento);
+router.get('/:barbeariaId/formas-pagamento', obterFormasPagamento);
 
 export default router;

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, ObterHorariosFuncionamento } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, ObterFormasPagamento, ObterHorariosFuncionamento } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -180,5 +180,23 @@ export const obterHorariosFuncionamento = async (req: Request, res: Response) =>
     } catch (error) {
         console.error('Erro ao buscar horários de funcionamento:', error);
         return res.status(500).json({ error: 'Erro ao buscar horários de funcionamento.' });
+    }
+};
+
+export const obterFormasPagamento = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+
+        // Chama o Service para obter as formas de pagamento
+        const formasPagamento = await ObterFormasPagamento(barbeariaId);
+
+        if (formasPagamento.length === 0) {
+            return res.status(404).json({ error: 'Nenhuma forma de pagamento cadastrada para essa barbearia.' });
+        }
+
+        return res.status(200).json(formasPagamento);
+    } catch (error) {
+        console.error('Erro ao buscar formas de pagamento:', error);
+        return res.status(500).json({ error: 'Erro ao buscar formas de pagamento.' });
     }
 };
