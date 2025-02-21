@@ -123,3 +123,23 @@ export const BuscarProdutosPorBarbearia = async (barbeariaId: string) => {
         },
     });
 };
+
+export const BuscarAvaliacoesPorBarbearia = async (barbeariaId: string) => {
+    return await prisma.avaliacao.findMany({
+        where: { barbeariaId },
+        select: {
+            id: true,
+            nota: true,
+            comentario: true,
+            dataHora: true,
+            usuario: {
+                select: {
+                    nome: true // Apenas o nome do usuário
+                }
+            }
+        },
+        orderBy: {
+            dataHora: 'desc' // Ordena da mais recente para a mais antiga
+        }
+    });
+};

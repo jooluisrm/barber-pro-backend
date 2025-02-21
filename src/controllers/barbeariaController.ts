@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -113,5 +113,31 @@ export const obterProdutosPorBarbearia = async (req: Request, res: Response) => 
     } catch (error) {
         console.error('Erro ao buscar produtos:', error);
         return res.status(500).json({ error: 'Erro ao buscar produtos.' });
+    }
+};
+
+export const obterAvaliacoesPorBarbearia = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        const avaliacoes = await BuscarAvaliacoesPorBarbearia(id);
+
+        if (avaliacoes.length === 0) {
+            return res.status(404).json({ error: 'Nenhuma avaliação encontrada para esta barbearia.' });
+        }
+
+        // Formata as avaliações antes de retornar
+        const avaliacoesFormatadas = avaliacoes.map(avaliacao => ({
+            id: avaliacao.id,
+            nota: avaliacao.nota,
+            nome: avaliacao.usuario.nome,
+            data: avaliacao.dataHora,
+            comentario: avaliacao.comentario
+        }));
+
+        return res.status(200).json(avaliacoesFormatadas);
+    } catch (error) {
+        console.error('Erro ao buscar avaliações:', error);
+        return res.status(500).json({ error: 'Erro ao buscar avaliações.' });
     }
 };

@@ -9,48 +9,6 @@ export const mainRouter = Router();
 mainRouter.use('/usuario', usuarioRoutes);
 mainRouter.use('/barbearia', barbeariaRoutes);
 
-mainRouter.get('/barbearia/:id/avaliacoes', async (req, res) => {
-    const { id } = req.params; // Obtém o ID da barbearia da URL
-
-    try {
-        // Consulta as avaliações da barbearia pelo id
-        const avaliacoes = await prisma.avaliacao.findMany({
-            where: { barbeariaId: id },
-            select: {
-                id: true,
-                nota: true,
-                comentario: true,
-                dataHora: true,
-                usuario: {
-                    select: {
-                        nome: true // Apenas o nome do usuário
-                    }
-                }
-            },
-            orderBy: {
-                dataHora: "desc" // Ordena da mais recente para a mais antiga
-            }
-        });
-
-        if (avaliacoes.length === 0) {
-            return res.status(404).json({ error: "Nenhuma avaliação encontrada para esta barbearia." });
-        }
-
-        // Retorna as avaliações formatadas
-        res.status(200).json(avaliacoes.map(avaliacao => ({
-            id: avaliacao.id,
-            nota: avaliacao.nota,
-            nome: avaliacao.usuario.nome,
-            data: avaliacao.dataHora,
-            comentario: avaliacao.comentario
-        })));
-
-    } catch (error) {
-        console.error("Erro ao buscar avaliações:", error);
-        res.status(500).json({ error: "Erro ao buscar avaliações." });
-    }
-});
-
 mainRouter.post('/barbearia/:id/avaliacoes', autenticarToken, async (req, res) => {
     const { id } = req.params; // ID da barbearia
     const { usuarioId, nota, comentario } = req.body; // Dados do corpo da requisição
