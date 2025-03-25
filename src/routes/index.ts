@@ -20,7 +20,7 @@ mainRouter.post('/barbearia/registrar', async (req: Request, res: Response) => {
         const { nome, email, senha, endereco, celular, telefone, latitude, longitude, fotoPerfil, descricao } = req.body;
 
         // 1️⃣ Validação de Campos
-        if (!nome || !email || !senha || !endereco || !celular || latitude === undefined || longitude === undefined) {
+        if (!nome || !email || !senha || !endereco || !celular || !latitude  || !longitude) {
             return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
         }
 
@@ -45,8 +45,8 @@ mainRouter.post('/barbearia/registrar', async (req: Request, res: Response) => {
                 endereco,
                 celular,
                 telefone,
-                latitude,
-                longitude,
+                latitude: parseFloat(latitude),
+                longitude: parseFloat(longitude),
                 fotoPerfil,
                 descricao,
             },
