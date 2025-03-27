@@ -20,7 +20,7 @@ mainRouter.post('/barbearia/registrar', async (req: Request, res: Response) => {
         const { nome, email, senha, endereco, celular, telefone, latitude, longitude, fotoPerfil, descricao } = req.body;
 
         // 1️⃣ Validação de Campos
-        if (!nome || !email || !senha || !endereco || !celular || !latitude  || !longitude) {
+        if (!nome || !email || !senha || !endereco || !celular || !latitude || !longitude) {
             return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
         }
 
@@ -112,5 +112,42 @@ mainRouter.post('/barbearia/login', async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Erro ao fazer login:', error);
         return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
+
+// Rota para buscar todos os agendamentos da barbearia logada
+mainRouter.get("/agendamento/:barbeariaId", async (req, res) => {
+    try {
+        const { barbeariaId } = req.params; // Obtém o ID da barbearia autenticada
+
+        const agendamentos = await prisma.agendamento.findMany({
+            where: { barbeariaId },
+            include: {
+                usuario: {
+                    select: {
+                        id: true,
+                        nome: true
+                    },
+                },
+                barbeiro: {
+                    select: {
+                        id: true,
+                        nome: true,
+                    },
+                },
+                servico: {
+                    select: {
+                        id: true,
+                        nome: true,
+                        preco: true,
+                    },
+                },
+            },
+        });
+
+        return res.json(agendamentos);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: "Erro ao buscar agendamentos" });
     }
 });
