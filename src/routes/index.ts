@@ -151,3 +151,26 @@ mainRouter.get("/agendamento/:barbeariaId", async (req, res) => {
         return res.status(500).json({ error: "Erro ao buscar agendamentos" });
     }
 });
+
+mainRouter.put("/agendamento/status/:agendamentoId", async (req, res) => {
+    try {
+        const { agendamentoId } = req.params; // Obtém o ID do agendamento
+        const { status } = req.body; // Obtém o novo status enviado no corpo da requisição
+
+        // Verifica se o status enviado é válido
+        if (!["Confirmado", "Feito", "Cancelado"].includes(status)) {
+            return res.status(400).json({ error: "Status inválido. O status deve ser 'Confirmado', 'Feito' ou 'Cancelado'." });
+        }
+
+        // Atualiza o status do agendamento no banco de dados
+        const updatedAgendamento = await prisma.agendamento.update({
+            where: { id: agendamentoId },
+            data: { status },
+        });
+
+        return res.json(updatedAgendamento); // Retorna o agendamento atualizado
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: "Erro ao atualizar o status do agendamento" });
+    }
+});
