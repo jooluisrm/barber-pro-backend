@@ -7,6 +7,7 @@ import agendamentoRoutes from './agendamentoRoutes';
 import { prisma } from '../libs/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { autenticarToken } from '../middlewares/authMiddleware';
 
 export const mainRouter = Router();
 
@@ -116,7 +117,7 @@ mainRouter.post('/barbearia/login', async (req: Request, res: Response) => {
 });
 
 // Rota para buscar todos os agendamentos da barbearia logada
-mainRouter.get("/agendamento/:barbeariaId", async (req, res) => {
+mainRouter.get("/barbearia/agendamentos/:barbeariaId", async (req, res) => {
     try {
         const { barbeariaId } = req.params; // Obtém o ID da barbearia autenticada
 
@@ -152,7 +153,7 @@ mainRouter.get("/agendamento/:barbeariaId", async (req, res) => {
     }
 });
 
-mainRouter.put("/agendamento/status/:agendamentoId", async (req, res) => {
+mainRouter.put("/barbearia/agendamento/status/:agendamentoId", async (req, res) => {
     try {
         const { agendamentoId } = req.params; // Obtém o ID do agendamento
         const { status } = req.body; // Obtém o novo status enviado no corpo da requisição
@@ -174,3 +175,54 @@ mainRouter.put("/agendamento/status/:agendamentoId", async (req, res) => {
         return res.status(500).json({ error: "Erro ao atualizar o status do agendamento" });
     }
 });
+
+mainRouter.post('/barbearia/barbeiro/register', async (req: Request, res: Response) => {
+    try {
+        const { nome, email, senha, telefone, fotoPerfil, barbeariaId } = req.body;
+
+        // 1️⃣ Validação de Campos
+        if (!nome || !email || !senha || !telefone || !barbeariaId) {
+            return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
+        }
+
+        // 2️⃣ Verifica se o e-mail já está cadastrado
+        const barbeiroExistente = await prisma.barbeiro.findUnique({
+            where: { email },
+        });
+
+        if (barbeiroExistente) {
+            return res.status(400).json({ error: 'E-mail já cadastrado.' });
+        }
+
+        // 3️⃣ Verifica se a barbearia existe
+        const barbeariaExistente = await prisma.barbearia.findUnique({
+            where: { id: barbeariaId },
+        });
+
+        if (!barbeariaExistente) {
+            return res.status(404).json({ error: 'Barbearia não encontrada.' });
+        }
+
+        // 4️⃣ Criptografar a senha
+        const senhaHash = await bcrypt.hash(senha, 10);
+
+        // 5️⃣ Criar o barbeiro no banco de dados
+        const novoBarbeiro = await prisma.barbeiro.create({
+            data: {
+                nome,
+                email,
+                senha: senhaHash,
+                telefone,
+                fotoPerfil,
+                barbeariaId,
+            },
+        });
+
+        // 6️⃣ Retornar sucesso
+        return res.status(201).json({ message: 'Barbeiro cadastrado com sucesso!', barbeiro: novoBarbeiro });
+    } catch (error) {
+        console.error('Erro ao registrar barbeiro:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
+
