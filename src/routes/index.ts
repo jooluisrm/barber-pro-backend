@@ -226,3 +226,102 @@ mainRouter.post('/barbearia/barbeiro/register', async (req: Request, res: Respon
     }
 });
 
+mainRouter.delete('/barbearia/barbeiro/:barbeiroId', async (req: Request, res: Response) => {
+    try {
+        const { barbeiroId } = req.params;
+
+        // 🔹 Verifica se o barbeiro possui agendamentos pendentes
+        const agendamentosPendentes = await prisma.agendamento.findFirst({
+            where: { barbeiroId, status: "Confirmado" },
+        });
+
+        if (agendamentosPendentes) {
+            return res.status(400).json({ error: "Este barbeiro possui agendamentos confirmados e não pode ser excluído." });
+        }
+
+        // 🔹 Verifica se o barbeiro existe
+        const barbeiroExiste = await prisma.barbeiro.findUnique({
+            where: { id: barbeiroId },
+        });
+
+        if (!barbeiroExiste) {
+            return res.status(404).json({ error: "Barbeiro não encontrado." });
+        }
+
+        // 🔹 Verifica se o barbeiro tem horários cadastrados antes de tentar deletá-los
+        const horariosExistem = await prisma.horarioTrabalho.findFirst({
+            where: { barbeiroId },
+        });
+
+        if (horariosExistem) {
+            await prisma.horarioTrabalho.deleteMany({
+                where: { barbeiroId },
+            });
+        }
+
+        // 🔹 Deleta o barbeiro
+        await prisma.barbeiro.delete({
+            where: { id: barbeiroId },
+        });
+
+        return res.status(200).json({ message: "Barbeiro deletado com sucesso!" });
+    } catch (error) {
+        console.error("Erro ao deletar barbeiro:", error);
+        return res.status(500).json({ error: "Erro interno do servidor." });
+    }
+});
+
+mainRouter.put("/barbearia/barbeiro/:barbeiroId", async (req: Request, res: Response) => {
+    try {
+        const { barbeiroId } = req.params;
+        const { nome, telefone, email } = req.body;
+
+        // 1️⃣ Validação de Campos
+        if (!nome || !telefone || !email) {
+            return res.status(400).json({ error: "Todos os campos (nome, telefone, email) devem ser preenchidos." });
+        }
+
+        // 2️⃣ Verificar se o barbeiro existe
+        const barbeiroExistente = await prisma.barbeiro.findUnique({
+            where: { id: barbeiroId },
+        });
+
+        if (!barbeiroExistente) {
+            return res.status(404).json({ error: "Barbeiro não encontrado." });
+        }
+
+        // 3️⃣ Verificar se os dados enviados são iguais aos já cadastrados
+        if (
+            nome === barbeiroExistente.nome &&
+            telefone === barbeiroExistente.telefone &&
+            email === barbeiroExistente.email
+        ) {
+            return res.status(400).json({ error: "Altere pelo menos um campo para continuar." });
+        }
+
+        // 4️⃣ Verificar se o novo email já está cadastrado por outro barbeiro
+        const emailEmUso = await prisma.barbeiro.findFirst({
+            where: {
+                email,
+                id: { not: barbeiroId }, // Exclui o próprio barbeiro da busca
+            },
+        });
+
+        if (emailEmUso) {
+            return res.status(400).json({ error: "Este e-mail já está em uso por outro barbeiro." });
+        }
+
+        // 5️⃣ Atualizar os dados do barbeiro
+        const barbeiroAtualizado = await prisma.barbeiro.update({
+            where: { id: barbeiroId },
+            data: { nome, telefone, email },
+        });
+
+        return res.status(200).json({ message: "Barbeiro atualizado com sucesso!", barbeiro: barbeiroAtualizado });
+    } catch (error) {
+        console.error("Erro ao atualizar barbeiro:", error);
+        return res.status(500).json({ error: "Erro interno do servidor." });
+    }
+});
+
+
