@@ -324,4 +324,86 @@ mainRouter.put("/barbearia/barbeiro/:barbeiroId", async (req: Request, res: Resp
     }
 });
 
+mainRouter.get("/barbearia/barbeiro/:barbeiroId/horarios/:diaSemana", async (req: Request, res: Response) => {
+    try {
+        const { barbeiroId, diaSemana } = req.params;
+
+        // Validação básica
+        const dia = parseInt(diaSemana);
+        if (isNaN(dia) || dia < 0 || dia > 6) {
+            return res.status(400).json({ error: "O dia da semana deve ser um número entre 0 (domingo) e 6 (sábado)." });
+        }
+
+        // Verifica se o barbeiro existe
+        const barbeiro = await prisma.barbeiro.findUnique({
+            where: { id: barbeiroId }
+        });
+
+        if (!barbeiro) {
+            return res.status(404).json({ error: "Barbeiro não encontrado." });
+        }
+
+        // Busca os horários do barbeiro para o dia da semana específico
+        const horarios = await prisma.horarioTrabalho.findMany({
+            where: {
+                barbeiroId,
+                diaSemana: dia
+            },
+            orderBy: {
+                hora: "asc"
+            }
+        });
+
+        return res.status(200).json({ horarios });
+    } catch (error) {
+        console.error("Erro ao buscar horários do barbeiro:", error);
+        return res.status(500).json({ error: "Erro interno do servidor." });
+    }
+});
+
+mainRouter.post('/barbeiro/:barbeiroId/horarios', async (req: Request, res: Response) => {
+    try {
+        const { barbeiroId } = req.params;
+        const { diaSemana, hora } = req.body;
+
+        // 1️⃣ Verificação dos campos obrigatórios
+        if (diaSemana === undefined || hora === undefined) {
+            return res.status(400).json({ error: 'O dia da semana e a hora são obrigatórios.' });
+        }
+
+        // 2️⃣ Validação do dia da semana (de 0 a 6)
+        const diaValido = Number(diaSemana);
+        if (isNaN(diaValido) || diaValido < 0 || diaValido > 6) {
+            return res.status(400).json({ error: 'O dia da semana deve estar entre 0 (domingo) e 6 (sábado).' });
+        }
+
+        // 3️⃣ Verifica se o horário já existe para aquele barbeiro e dia
+        const horarioExistente = await prisma.horarioTrabalho.findFirst({
+            where: {
+                barbeiroId,
+                diaSemana: diaValido,
+                hora,
+            }
+        });
+
+        if (horarioExistente) {
+            return res.status(400).json({ error: `Horário (${hora}) já está cadastrado!` });
+        }
+
+        // 4️⃣ Cria o novo horário
+        const novoHorario = await prisma.horarioTrabalho.create({
+            data: {
+                barbeiroId,
+                diaSemana: diaValido,
+                hora,
+            }
+        });
+
+        return res.status(201).json({ message: 'Horário criado com sucesso!', horario: novoHorario });
+
+    } catch (error) {
+        console.error('Erro ao criar horário de trabalho:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
 
