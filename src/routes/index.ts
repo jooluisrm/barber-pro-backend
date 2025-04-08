@@ -407,3 +407,62 @@ mainRouter.post('/barbeiro/:barbeiroId/horarios', async (req: Request, res: Resp
     }
 });
 
+mainRouter.delete('/barbeiro/:barbeiroId/horarios', async (req: Request, res: Response) => {
+    try {
+        const { barbeiroId } = req.params;
+        const { horarios } = req.body; // Exemplo: [{ diaSemana: 1, hora: "09:00" }, ...]
+
+        if (!Array.isArray(horarios) || horarios.length === 0) {
+            return res.status(400).json({ error: 'Lista de horários a serem deletados é obrigatória.' });
+        }
+
+        const horariosInvalidos = horarios.filter(({ diaSemana, hora }) =>
+            diaSemana === undefined || hora === undefined || isNaN(Number(diaSemana)) || diaSemana < 0 || diaSemana > 6
+        );
+
+        if (horariosInvalidos.length > 0) {
+            return res.status(400).json({ error: 'Todos os horários devem ter diaSemana (0-6) e hora válidos.' });
+        }
+
+        for (const { diaSemana, hora } of horarios) {
+            // 1️⃣ Apagar horário de trabalho
+            await prisma.horarioTrabalho.deleteMany({
+                where: {
+                    barbeiroId,
+                    diaSemana: Number(diaSemana),
+                    hora,
+                },
+            });
+
+            // 2️⃣ Cancelar agendamentos relacionados
+            const agendamentos = await prisma.agendamento.findMany({
+                where: {
+                    barbeiroId,
+                    hora,
+                }
+            });
+
+            const agendamentosNoMesmoDiaSemana = agendamentos.filter(agendamento => {
+                const data = new Date(agendamento.data);
+                return data.getDay() === Number(diaSemana);
+            });
+
+            if (agendamentosNoMesmoDiaSemana.length > 0) {
+                await Promise.all(
+                    agendamentosNoMesmoDiaSemana.map(agendamento =>
+                        prisma.agendamento.update({
+                            where: { id: agendamento.id },
+                            data: { status: 'Cancelado' },
+                        })
+                    )
+                );
+            }
+        }
+
+        return res.status(200).json({ message: 'Horários deletados e agendamentos (se houver) cancelados com sucesso!' });
+
+    } catch (error) {
+        console.error('Erro ao deletar horários e cancelar agendamentos:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
