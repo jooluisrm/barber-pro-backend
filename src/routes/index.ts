@@ -8,6 +8,7 @@ import { prisma } from '../libs/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { autenticarToken } from '../middlewares/authMiddleware';
+import { Prisma } from '@prisma/client';
 
 export const mainRouter = Router();
 
@@ -624,3 +625,67 @@ mainRouter.delete('/barbearia/:barbeariaId/servicos/:servicoId', async (req: Req
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 });
+
+
+mainRouter.get('/barbearia/:barbeariaId/produtos', async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+
+        if (!barbeariaId) {
+            return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
+        }
+
+        // Busca os produtos da barbearia específica
+        const produtos = await prisma.produto.findMany({
+            where: { barbeariaId },
+            orderBy: { nome: 'asc' }, // ordena por nome (opcional)
+        });
+
+        return res.status(200).json(produtos);
+    } catch (error) {
+        console.error('Erro ao buscar produtos da barbearia:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
+
+mainRouter.post('/barbearia/:barbeariaId/produtos', async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+        const { nome, descricao, tipo, preco, imagemUrl } = req.body;
+
+        // Verificação de campos obrigatórios
+        if (!nome || typeof nome !== 'string') {
+            return res.status(400).json({ error: 'Nome do produto é obrigatório e deve ser uma string.' });
+        }
+
+        if (!tipo || typeof tipo !== 'string') {
+            return res.status(400).json({ error: 'Tipo do produto é obrigatório e deve ser uma string.' });
+        }
+
+        if (preco === undefined || isNaN(Number(preco)) || Number(preco) < 0) {
+            return res.status(400).json({ error: 'Preço do produto é obrigatório e deve ser um número positivo.' });
+        }
+
+        // Criação do produto
+        const novoProduto = await prisma.produto.create({
+            data: {
+                barbeariaId,
+                nome,
+                descricao: descricao || null,
+                tipo,
+                preco: Number(preco),
+                imagemUrl: imagemUrl || null,
+                estoque: true, // Define estoque como true por padrão
+            },
+        });
+
+        return res.status(201).json({
+            message: 'Produto criado com sucesso!',
+            produto: novoProduto,
+        });
+    } catch (error) {
+        console.error('Erro ao criar produto:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
+
