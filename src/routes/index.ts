@@ -798,3 +798,46 @@ mainRouter.get('/barbearia/:barbeariaId/redes-sociais', async (req: Request, res
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 });
+
+mainRouter.post('/barbearia/:barbeariaId/redes-sociais', async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+        const { rede, link } = req.body;
+
+        if (!barbeariaId || !rede || !link) {
+            return res.status(400).json({ error: 'Barbearia, nome da rede e link são obrigatórios.' });
+        }
+
+        // Verifica se a rede já está cadastrada para essa barbearia
+        const redeExistente = await prisma.redeSocial.findFirst({
+            where: {
+                barbeariaId,
+                rede: {
+                    equals: rede
+                }
+            }
+        });
+
+        if (redeExistente) {
+            return res.status(400).json({ error: `A rede social "${rede}" já está cadastrada para esta barbearia.` });
+        }
+
+        // Cria a rede social
+        const novaRede = await prisma.redeSocial.create({
+            data: {
+                barbeariaId,
+                rede,
+                link
+            }
+        });
+
+        return res.status(201).json({
+            message: 'Rede social criada com sucesso!',
+            redeSocial: novaRede
+        });
+
+    } catch (error) {
+        console.error('Erro ao criar rede social:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
