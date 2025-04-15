@@ -655,15 +655,15 @@ mainRouter.post('/barbearia/:barbeariaId/produtos', async (req: Request, res: Re
 
         // Verificação de campos obrigatórios
         if (!nome || typeof nome !== 'string') {
-            return res.status(400).json({ error: 'Nome do produto é obrigatório e deve ser uma string.' });
+            return res.status(400).json({ error: 'Nome do produto é obrigatório.' });
         }
 
         if (!tipo || typeof tipo !== 'string') {
-            return res.status(400).json({ error: 'Tipo do produto é obrigatório e deve ser uma string.' });
+            return res.status(400).json({ error: 'Tipo do produto é obrigatório.' });
         }
 
         if (preco === undefined || isNaN(Number(preco)) || Number(preco) < 0) {
-            return res.status(400).json({ error: 'Preço do produto é obrigatório e deve ser um número positivo.' });
+            return res.status(400).json({ error: 'Preço do produto é obrigatório.' });
         }
 
         // Criação do produto
@@ -689,3 +689,62 @@ mainRouter.post('/barbearia/:barbeariaId/produtos', async (req: Request, res: Re
     }
 });
 
+mainRouter.put('/barbearia/:barbeariaId/produtos/:produtoId', async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, produtoId } = req.params;
+        const { nome, descricao, tipo, preco } = req.body;
+
+        if (!nome || typeof nome !== 'string') {
+            return res.status(400).json({ error: 'Nome do produto é obrigatório.' });
+        }
+
+        if (!tipo || typeof tipo !== 'string') {
+            return res.status(400).json({ error: 'Tipo do produto é obrigatório.' });
+        }
+
+        if (preco === undefined || isNaN(Number(preco)) || Number(preco) < 0) {
+            return res.status(400).json({ error: 'Preço do produto é obrigatório.' });
+        }
+
+        // Busca o produto atual
+        const produtoExistente = await prisma.produto.findUnique({
+            where: {
+                id: produtoId,
+            },
+        });
+
+        if (!produtoExistente || produtoExistente.barbeariaId !== barbeariaId) {
+            return res.status(404).json({ error: 'Produto não encontrado para esta barbearia.' });
+        }
+
+        // Verifica se houve alguma alteração
+        const dadosIguais =
+            produtoExistente.nome === nome &&
+            produtoExistente.descricao === descricao &&
+            produtoExistente.tipo === tipo &&
+            Number(produtoExistente.preco) === Number(preco);
+
+        if (dadosIguais) {
+            return res.status(400).json({ error: 'Nenhuma alteração foi feita no produto.' });
+        }
+
+        // Atualiza o produto
+        const produtoAtualizado = await prisma.produto.update({
+            where: { id: produtoId },
+            data: {
+                nome,
+                descricao,
+                tipo,
+                preco: Number(preco),
+            },
+        });
+
+        return res.status(200).json({
+            message: 'Produto atualizado com sucesso!',
+            produto: produtoAtualizado,
+        });
+    } catch (error) {
+        console.error('Erro ao editar produto:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
