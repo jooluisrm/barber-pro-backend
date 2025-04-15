@@ -748,3 +748,53 @@ mainRouter.put('/barbearia/:barbeariaId/produtos/:produtoId', async (req: Reques
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 });
+
+mainRouter.delete('/barbearia/:barbeariaId/produtos/:produtoId', async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, produtoId } = req.params;
+
+        if (!barbeariaId || !produtoId) {
+            return res.status(400).json({ error: 'ID da barbearia e do produto são obrigatórios.' });
+        }
+
+        // Verifica se o produto existe
+        const produtoExistente = await prisma.produto.findUnique({
+            where: { id: produtoId },
+        });
+
+        if (!produtoExistente || produtoExistente.barbeariaId !== barbeariaId) {
+            return res.status(404).json({ error: 'Produto não encontrado para esta barbearia.' });
+        }
+
+        // Deleta o produto
+        await prisma.produto.delete({
+            where: { id: produtoId },
+        });
+
+        return res.status(200).json({ message: 'Produto deletado com sucesso!' });
+    } catch (error) {
+        console.error('Erro ao deletar produto:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
+
+mainRouter.get('/barbearia/:barbeariaId/redes-sociais', async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+
+        if (!barbeariaId) {
+            return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
+        }
+
+        // Busca as redes sociais da barbearia específica
+        const redesSociais = await prisma.redeSocial.findMany({
+            where: { barbeariaId },
+            orderBy: { rede: 'asc' }, // ordena por nome da rede social (opcional)
+        });
+
+        return res.status(200).json(redesSociais);
+    } catch (error) {
+        console.error('Erro ao buscar redes sociais da barbearia:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
