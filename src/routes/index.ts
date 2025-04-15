@@ -841,3 +841,46 @@ mainRouter.post('/barbearia/:barbeariaId/redes-sociais', async (req: Request, re
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 });
+
+mainRouter.put('/barbearia/:barbeariaId/redes-sociais/:redeId', async (req: Request, res: Response) => {
+    try {
+      const { barbeariaId, redeId } = req.params;
+      const { link } = req.body;
+  
+      if (!link || typeof link !== 'string') {
+        return res.status(400).json({ error: 'O link é obrigatório.' });
+      }
+  
+      // Verifica se a rede social existe
+      const redeExistente = await prisma.redeSocial.findFirst({
+        where: {
+          id: redeId,
+          barbeariaId,
+        },
+      });
+  
+      if (!redeExistente) {
+        return res.status(404).json({ error: 'Rede social não encontrada para esta barbearia.' });
+      }
+  
+      // Verifica se houve alteração
+      if (redeExistente.link === link) {
+        return res.status(400).json({ error: 'Nenhuma alteração detectada. O link é igual ao atual.' });
+      }
+  
+      // Atualiza o link
+      const redeAtualizada = await prisma.redeSocial.update({
+        where: { id: redeId },
+        data: { link },
+      });
+  
+      return res.status(200).json({
+        message: 'Link da rede social atualizado com sucesso!',
+        redeSocial: redeAtualizada,
+      });
+    } catch (error) {
+      console.error('Erro ao editar link da rede social:', error);
+      return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+  });
+  
