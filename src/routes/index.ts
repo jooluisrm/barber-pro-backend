@@ -914,21 +914,67 @@ mainRouter.delete('/barbearia/:barbeariaId/redes-sociais/:redeId', async (req: R
 
 mainRouter.get('/barbearia/:barbeariaId/formas-pagamento', async (req: Request, res: Response) => {
     try {
-      const { barbeariaId } = req.params;
-  
-      if (!barbeariaId) {
-        return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
-      }
-  
-      // Busca todas as formas de pagamento da barbearia
-      const formasPagamento = await prisma.formaPagamento.findMany({
-        where: { barbeariaId },
-        orderBy: { tipo: 'asc' }, // Ordena por tipo de pagamento (opcional)
-      });
-  
-      return res.status(200).json(formasPagamento);
+        const { barbeariaId } = req.params;
+
+        if (!barbeariaId) {
+            return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
+        }
+
+        // Busca todas as formas de pagamento da barbearia
+        const formasPagamento = await prisma.formaPagamento.findMany({
+            where: { barbeariaId },
+            orderBy: { tipo: 'asc' }, // Ordena por tipo de pagamento (opcional)
+        });
+
+        return res.status(200).json(formasPagamento);
     } catch (error) {
-      console.error('Erro ao buscar formas de pagamento da barbearia:', error);
-      return res.status(500).json({ error: 'Erro interno do servidor.' });
+        console.error('Erro ao buscar formas de pagamento da barbearia:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
-  });  
+});
+
+mainRouter.post('/barbearia/:barbeariaId/formas-pagamento', async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+        const { tipo } = req.body;
+
+        // Verificação de dados obrigatórios
+        if (!barbeariaId) {
+            return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
+        }
+
+        if (!tipo || typeof tipo !== 'string' || tipo.trim() === '') {
+            return res.status(400).json({ error: 'O tipo da forma de pagamento é obrigatório e deve ser uma string válida.' });
+        }
+
+        // Verifica se já existe essa forma de pagamento cadastrada
+        const formaExistente = await prisma.formaPagamento.findFirst({
+            where: {
+                barbeariaId,
+                tipo: {
+                    equals: tipo
+                },
+            },
+        });
+
+        if (formaExistente) {
+            return res.status(400).json({ error: 'Essa forma de pagamento já está cadastrada para a barbearia.' });
+        }
+
+        // Criação da forma de pagamento
+        const novaForma = await prisma.formaPagamento.create({
+            data: {
+                barbeariaId,
+                tipo: tipo.trim(),
+            },
+        });
+
+        return res.status(201).json({
+            message: 'Forma de pagamento criada com sucesso!',
+            formaPagamento: novaForma,
+        });
+    } catch (error) {
+        console.error('Erro ao criar forma de pagamento:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
