@@ -978,3 +978,36 @@ mainRouter.post('/barbearia/:barbeariaId/formas-pagamento', async (req: Request,
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 });
+
+mainRouter.delete('/barbearia/:barbeariaId/formas-pagamento/:formaPagamentoId', async (req: Request, res: Response) => {
+    try {
+      const { barbeariaId, formaPagamentoId } = req.params;
+  
+      if (!barbeariaId || !formaPagamentoId) {
+        return res.status(400).json({ error: 'ID da barbearia e da forma de pagamento são obrigatórios.' });
+      }
+  
+      // Verifica se a forma de pagamento existe e pertence à barbearia
+      const formaPagamento = await prisma.formaPagamento.findFirst({
+        where: {
+          id: formaPagamentoId,
+          barbeariaId: barbeariaId,
+        },
+      });
+  
+      if (!formaPagamento) {
+        return res.status(404).json({ error: 'Forma de pagamento não encontrada para esta barbearia.' });
+      }
+  
+      // Deleta a forma de pagamento
+      await prisma.formaPagamento.delete({
+        where: { id: formaPagamentoId },
+      });
+  
+      return res.status(200).json({ message: 'Forma de pagamento deletada com sucesso.' });
+    } catch (error) {
+      console.error('Erro ao deletar forma de pagamento:', error);
+      return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+  });
+  
