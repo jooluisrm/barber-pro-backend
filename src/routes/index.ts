@@ -1146,3 +1146,31 @@ mainRouter.put('/barbearia/:barbeariaId/horario-funcionamento/:horarioId', async
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 });
+
+mainRouter.delete('/barbearia/:barbeariaId/horario-funcionamento/:horarioId', async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, horarioId } = req.params;
+
+        // Verifica se o horário existe e pertence à barbearia
+        const horario = await prisma.horariosFuncionamentoBarbearia.findFirst({
+            where: {
+                id: horarioId,
+                barbeariaId,
+            },
+        });
+
+        if (!horario) {
+            return res.status(404).json({ error: 'Horário de funcionamento não encontrado para esta barbearia.' });
+        }
+
+        // Deleta o horário
+        await prisma.horariosFuncionamentoBarbearia.delete({
+            where: { id: horarioId },
+        });
+
+        return res.status(200).json({ message: 'Horário de funcionamento deletado com sucesso.' });
+    } catch (error) {
+        console.error('Erro ao deletar horário de funcionamento:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
