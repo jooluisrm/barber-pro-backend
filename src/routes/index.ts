@@ -1086,3 +1086,63 @@ mainRouter.post('/barbearia/:barbeariaId/horario-funcionamento', async (req: Req
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 });
+
+mainRouter.put('/barbearia/:barbeariaId/horario-funcionamento/:horarioId', async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, horarioId } = req.params;
+        const { horaInicio, horaFim } = req.body;
+
+        // Verifica se os dados obrigatórios foram enviados
+        if (!horaInicio || !horaFim) {
+            return res.status(400).json({ error: 'Horário de início e fim são obrigatórios.' });
+        }
+
+        // Verifica se o horário de início é menor que o horário de fim
+        const [hInicioH, hInicioM] = horaInicio.split(':').map(Number);
+        const [hFimH, hFimM] = horaFim.split(':').map(Number);
+
+        const minutosInicio = hInicioH * 60 + hInicioM;
+        const minutosFim = hFimH * 60 + hFimM;
+
+        if (minutosInicio >= minutosFim) {
+            return res.status(400).json({ error: 'O horário de início deve ser menor que o horário de fim.' });
+        }
+
+        // Busca o horário existente
+        const horarioExistente = await prisma.horariosFuncionamentoBarbearia.findFirst({
+            where: {
+                id: horarioId,
+                barbeariaId,
+            },
+        });
+
+        if (!horarioExistente) {
+            return res.status(404).json({ error: 'Horário de funcionamento não encontrado.' });
+        }
+
+        // Verifica se os dados enviados são os mesmos
+        if (
+            horarioExistente.horaInicio === horaInicio &&
+            horarioExistente.horaFim === horaFim
+        ) {
+            return res.status(400).json({ error: 'Nenhuma alteração detectada nos horários.' });
+        }
+
+        // Atualiza o horário
+        const horarioAtualizado = await prisma.horariosFuncionamentoBarbearia.update({
+            where: { id: horarioId },
+            data: {
+                horaInicio,
+                horaFim,
+            },
+        });
+
+        return res.status(200).json({
+            message: 'Horário de funcionamento atualizado com sucesso!',
+            horario: horarioAtualizado,
+        });
+    } catch (error) {
+        console.error('Erro ao atualizar horário de funcionamento:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
