@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registrarNovaBarbearia } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -216,5 +216,19 @@ export const obterRedesSociais = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Erro ao buscar redes sociais:', error);
         return res.status(500).json({ error: 'Erro ao buscar redes sociais.' });
+    }
+};
+
+
+export const registrarBarbearia = async (req: Request, res: Response) => {
+    try {
+        const novaBarbearia = await registrarNovaBarbearia(req.body);
+        return res.status(201).json({
+            message: 'Barbearia cadastrada com sucesso!',
+            barbearia: novaBarbearia
+        });
+    } catch (error: any) {
+        console.error('Erro ao registrar barbearia:', error);
+        return res.status(500).json({ error: error.message || 'Erro interno do servidor.' });
     }
 };

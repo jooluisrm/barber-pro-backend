@@ -11,7 +11,8 @@ import {
     criarAvaliacao,
     obterHorariosFuncionamento,
     obterFormasPagamento,
-    obterRedesSociais
+    obterRedesSociais,
+    registrarBarbearia
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 
@@ -29,5 +30,8 @@ router.post('/:id/avaliacoes', autenticarToken, criarAvaliacao);
 router.get('/:barbeariaId/horarios', obterHorariosFuncionamento);
 router.get('/:barbeariaId/formas-pagamento', obterFormasPagamento);
 router.get('/:barbeariaId/redes-sociais', obterRedesSociais);
+
+
+router.post('/registrar', registrarBarbearia);
 
 export default router;

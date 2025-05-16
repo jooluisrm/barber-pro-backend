@@ -14,7 +14,7 @@ model Barbearia {
   senha      String
   endereco   String
   celular    String
-  telefone   String
+  telefone   String?
   fotoPerfil String?
   descricao  String?
   latitude   Float

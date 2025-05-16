@@ -17,50 +17,6 @@ mainRouter.use('/barbearia', barbeariaRoutes);
 mainRouter.use('/barbeiro', barbeiroRoutes);
 mainRouter.use('/agendamentos', agendamentoRoutes);
 
-mainRouter.post('/barbearia/registrar', async (req: Request, res: Response) => {
-    try {
-        const { nome, email, senha, endereco, celular, telefone, latitude, longitude, fotoPerfil, descricao } = req.body;
-
-        // 1️⃣ Validação de Campos
-        if (!nome || !email || !senha || !endereco || !celular || !latitude || !longitude) {
-            return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
-        }
-
-        // 2️⃣ Verifica se o e-mail ou nome já estão cadastrados
-        const barbeariaExistente = await prisma.barbearia.findFirst({
-            where: { OR: [{ email }, { nome }] },
-        });
-
-        if (barbeariaExistente) {
-            return res.status(400).json({ error: 'Nome ou e-mail já cadastrados.' });
-        }
-
-        // 3️⃣ Criptografar a senha
-        const senhaHash = await bcrypt.hash(senha, 10);
-
-        // 4️⃣ Criar a barbearia no banco de dados
-        const novaBarbearia = await prisma.barbearia.create({
-            data: {
-                nome,
-                email,
-                senha: senhaHash,
-                endereco,
-                celular,
-                telefone,
-                latitude: parseFloat(latitude),
-                longitude: parseFloat(longitude),
-                fotoPerfil,
-                descricao,
-            },
-        });
-
-        // 5️⃣ Retornar sucesso
-        return res.status(201).json({ message: 'Barbearia cadastrada com sucesso!', barbearia: novaBarbearia });
-    } catch (error) {
-        console.error('Erro ao registrar barbearia:', error);
-        return res.status(500).json({ error: 'Erro interno do servidor.' });
-    }
-});
 
 const SECRET_KEY = process.env.JWT_SECRET || 'seuSegredoSuperSeguro';
 

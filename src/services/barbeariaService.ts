@@ -1,5 +1,5 @@
 import { prisma } from "../libs/prisma";
-
+import bcrypt from 'bcryptjs';
 
 export const BuscarBarbeariasProximas = async (latUser: number, lonUser: number, raioKm: number) => {
     // Buscar todas as barbearias sem expor dados sensíveis
@@ -204,4 +204,70 @@ export const ObterRedesSociais = async (barbeariaId: string) => {
             rede: true, // Nome da rede social (ex: "Instagram", "Facebook", etc.)
         },
     });
+};
+
+
+interface RegistrarBarbeariaDTO {
+    nome: string;
+    email: string;
+    senha: string;
+    endereco: string;
+    celular: string;
+    telefone?: string;
+    latitude: string;
+    longitude: string;
+    fotoPerfil?: string;
+    descricao?: string;
+}
+
+export const registrarNovaBarbearia = async (data: RegistrarBarbeariaDTO) => {
+    const {
+        nome,
+        email,
+        senha,
+        endereco,
+        celular,
+        telefone,
+        latitude,
+        longitude,
+        fotoPerfil,
+        descricao
+    } = data;
+
+    // Validação
+    if (!nome || !email || !senha || !endereco || !celular || !latitude || !longitude) {
+        throw new Error('Todos os campos obrigatórios devem ser preenchidos.');
+    }
+
+    // Verificar se já existe barbearia com mesmo nome ou email
+    const existente = await prisma.barbearia.findFirst({
+        where: {
+            OR: [{ email }, { nome }]
+        }
+    });
+
+    if (existente) {
+        throw new Error('Nome ou e-mail já cadastrados.');
+    }
+
+    // Criptografar a senha
+    const senhaHash = await bcrypt.hash(senha, 10);
+
+    // Criar a barbearia
+    const novaBarbearia = await prisma.barbearia.create({
+        data: {
+            nome,
+            email,
+            senha: senhaHash,
+            endereco,
+            celular,
+            telefone: !telefone ? '' : telefone,
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude),
+            fotoPerfil,
+            descricao,
+        }
+    });
+
+    return novaBarbearia;
 };
