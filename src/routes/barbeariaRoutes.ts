@@ -12,7 +12,9 @@ import {
     obterHorariosFuncionamento,
     obterFormasPagamento,
     obterRedesSociais,
-    registrarBarbearia
+    registrarBarbearia,
+    loginBarbeariaController,
+    getAgendamentosController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 
@@ -33,5 +35,7 @@ router.get('/:barbeariaId/redes-sociais', obterRedesSociais);
 
 
 router.post('/registrar', registrarBarbearia);
+router.post('/login', loginBarbeariaController);
+router.get('/agendamentos/:barbeariaId', getAgendamentosController);
 
 export default router;

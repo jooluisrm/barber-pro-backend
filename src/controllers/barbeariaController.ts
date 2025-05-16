@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registrarNovaBarbearia } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, getAgendamentosService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registrarNovaBarbearia } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -230,5 +230,27 @@ export const registrarBarbearia = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Erro ao registrar barbearia:', error);
         return res.status(500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const loginBarbeariaController = async (req: Request, res: Response) => {
+    try {
+        const { email, senha } = req.body;
+        const resultado = await loginBarbeariaService(email, senha);
+        return res.status(200).json(resultado);
+    } catch (error: any) {
+        console.error('Erro ao fazer login:', error);
+        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const getAgendamentosController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+        const agendamentos = await getAgendamentosService(barbeariaId);
+        return res.json(agendamentos);
+    } catch (error) {
+        console.error('Erro ao buscar agendamentos:', error);
+        return res.status(500).json({ error: 'Erro ao buscar agendamentos' });
     }
 };

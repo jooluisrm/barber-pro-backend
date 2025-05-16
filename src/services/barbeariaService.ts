@@ -1,5 +1,6 @@
 import { prisma } from "../libs/prisma";
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 export const BuscarBarbeariasProximas = async (latUser: number, lonUser: number, raioKm: number) => {
     // Buscar todas as barbearias sem expor dados sensíveis
@@ -270,4 +271,79 @@ export const registrarNovaBarbearia = async (data: RegistrarBarbeariaDTO) => {
     });
 
     return novaBarbearia;
+};
+
+const SECRET_KEY = process.env.JWT_SECRET || 'seuSegredoSuperSeguro';
+
+export const loginBarbeariaService = async (email: string, senha: string) => {
+    // Validação
+    if (!email || !senha) {
+        throw { status: 400, message: 'E-mail e senha são obrigatórios.' };
+    }
+
+    // Verifica se a barbearia existe
+    const barbearia = await prisma.barbearia.findUnique({ where: { email } });
+
+    if (!barbearia) {
+        throw { status: 401, message: 'E-mail ou senha inválidos.' };
+    }
+
+    // Compara senha
+    const senhaValida = await bcrypt.compare(senha, barbearia.senha);
+    if (!senhaValida) {
+        throw { status: 401, message: 'E-mail ou senha inválidos.' };
+    }
+
+    // Gera token
+    const token = jwt.sign(
+        { id: barbearia.id, email: barbearia.email },
+        SECRET_KEY,
+        { expiresIn: '2h' }
+    );
+
+    return {
+        message: 'Login realizado com sucesso!',
+        barbearia: {
+            id: barbearia.id,
+            nome: barbearia.nome,
+            email: barbearia.email,
+            endereco: barbearia.endereco,
+            celular: barbearia.celular,
+            telefone: barbearia.telefone,
+            fotoPerfil: barbearia.fotoPerfil,
+            descricao: barbearia.descricao,
+            status: barbearia.status
+        },
+        token
+    };
+};
+
+
+export const getAgendamentosService = async (barbeariaId: string) => {
+    const agendamentos = await prisma.agendamento.findMany({
+        where: { barbeariaId },
+        include: {
+            usuario: {
+                select: {
+                    id: true,
+                    nome: true
+                },
+            },
+            barbeiro: {
+                select: {
+                    id: true,
+                    nome: true,
+                },
+            },
+            servico: {
+                select: {
+                    id: true,
+                    nome: true,
+                    preco: true,
+                },
+            },
+        },
+    });
+
+    return agendamentos;
 };
