@@ -448,3 +448,85 @@ export const deleteBarbeiroService = async (barbeiroId: string) => {
 
     return "Barbeiro deletado com sucesso!";
 };
+
+interface UpdateBarbeiroDTO {
+    nome: string;
+    telefone: string;
+    email: string;
+}
+
+export const updateBarbeiroService = async (barbeiroId: string, { nome, telefone, email }: UpdateBarbeiroDTO) => {
+    // Validação de campos
+    if (!nome || !telefone || !email) {
+        throw { status: 400, message: "Todos os campos (nome, telefone, email) devem ser preenchidos." };
+    }
+
+    // Verifica se o barbeiro existe
+    const barbeiroExistente = await prisma.barbeiro.findUnique({
+        where: { id: barbeiroId },
+    });
+
+    if (!barbeiroExistente) {
+        throw { status: 404, message: "Barbeiro não encontrado." };
+    }
+
+    // Verifica se os dados são iguais
+    if (
+        nome === barbeiroExistente.nome &&
+        telefone === barbeiroExistente.telefone &&
+        email === barbeiroExistente.email
+    ) {
+        throw { status: 400, message: "Altere pelo menos um campo para continuar." };
+    }
+
+    // Verifica se o novo e-mail está em uso por outro barbeiro
+    const emailEmUso = await prisma.barbeiro.findFirst({
+        where: {
+            email,
+            id: { not: barbeiroId },
+        },
+    });
+
+    if (emailEmUso) {
+        throw { status: 400, message: "Este e-mail já está em uso por outro barbeiro." };
+    }
+
+    // Atualiza os dados
+    const barbeiroAtualizado = await prisma.barbeiro.update({
+        where: { id: barbeiroId },
+        data: { nome, telefone, email },
+    });
+
+    return barbeiroAtualizado;
+};
+
+export const getHorariosPorDiaService = async (barbeiroId: string, diaSemana: string) => {
+    const dia = parseInt(diaSemana);
+
+    // Validação do dia da semana
+    if (isNaN(dia) || dia < 0 || dia > 6) {
+        throw { status: 400, message: "O dia da semana deve ser um número entre 0 (domingo) e 6 (sábado)." };
+    }
+
+    // Verifica se o barbeiro existe
+    const barbeiro = await prisma.barbeiro.findUnique({
+        where: { id: barbeiroId }
+    });
+
+    if (!barbeiro) {
+        throw { status: 404, message: "Barbeiro não encontrado." };
+    }
+
+    // Busca os horários para o dia específico
+    const horarios = await prisma.horarioTrabalho.findMany({
+        where: {
+            barbeiroId,
+            diaSemana: dia
+        },
+        orderBy: {
+            hora: "asc"
+        }
+    });
+
+    return horarios;
+};

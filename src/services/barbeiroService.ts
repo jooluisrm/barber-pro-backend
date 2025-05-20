@@ -63,3 +63,98 @@ export const ObterHorariosDisponiveis = async (barbeiroId: string, data: string,
 
     return horariosDisponiveis;
 };
+
+export const createHorarioService = async (
+    barbeiroId: string,
+    diaSemana: number,
+    hora: string
+) => {
+    // 1️⃣ Verificação dos campos obrigatórios
+    if (diaSemana === undefined || hora === undefined) {
+        throw { status: 400, message: 'O dia da semana e a hora são obrigatórios.' };
+    }
+
+    // 2️⃣ Validação do dia da semana
+    const diaValido = Number(diaSemana);
+    if (isNaN(diaValido) || diaValido < 0 || diaValido > 6) {
+        throw { status: 400, message: 'O dia da semana deve estar entre 0 (domingo) e 6 (sábado).' };
+    }
+
+    // 3️⃣ Verifica se o horário já existe
+    const horarioExistente = await prisma.horarioTrabalho.findFirst({
+        where: {
+            barbeiroId,
+            diaSemana: diaValido,
+            hora,
+        },
+    });
+
+    if (horarioExistente) {
+        throw { status: 400, message: `Horário (${hora}) já está cadastrado!` };
+    }
+
+    // 4️⃣ Criação do novo horário
+    const novoHorario = await prisma.horarioTrabalho.create({
+        data: {
+            barbeiroId,
+            diaSemana: diaValido,
+            hora,
+        },
+    });
+
+    return novoHorario;
+};
+
+interface Horario {
+    diaSemana: number;
+    hora: string;
+}
+
+export const deleteHorariosService = async (barbeiroId: string, horarios: Horario[]) => {
+    if (!Array.isArray(horarios) || horarios.length === 0) {
+        throw { status: 400, message: 'Lista de horários a serem deletados é obrigatória.' };
+    }
+
+    const horariosInvalidos = horarios.filter(({ diaSemana, hora }) =>
+        diaSemana === undefined || hora === undefined || isNaN(Number(diaSemana)) || diaSemana < 0 || diaSemana > 6
+    );
+
+    if (horariosInvalidos.length > 0) {
+        throw { status: 400, message: 'Todos os horários devem ter diaSemana (0-6) e hora válidos.' };
+    }
+
+    for (const { diaSemana, hora } of horarios) {
+        const dia = Number(diaSemana);
+
+        // 1️⃣ Deleta horário de trabalho
+        await prisma.horarioTrabalho.deleteMany({
+            where: {
+                barbeiroId,
+                diaSemana: dia,
+                hora,
+            },
+        });
+
+        // 2️⃣ Busca e cancela agendamentos associados ao horário removido
+        const agendamentos = await prisma.agendamento.findMany({
+            where: {
+                barbeiroId,
+                hora,
+            },
+        });
+
+        const agendamentosParaCancelar = agendamentos.filter(agendamento => {
+            const data = new Date(agendamento.data);
+            return data.getDay() === dia;
+        });
+
+        await Promise.all(
+            agendamentosParaCancelar.map(agendamento =>
+                prisma.agendamento.update({
+                    where: { id: agendamento.id },
+                    data: { status: 'Cancelado' },
+                })
+            )
+        );
+    }
+};

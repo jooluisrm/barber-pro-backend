@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, deleteBarbeiroService, getAgendamentosService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, deleteBarbeiroService, getAgendamentosService, getHorariosPorDiaService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateBarbeiroService, updateStatusAgendamentoService } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -308,5 +308,33 @@ export const deleteBarbeiroController = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error('Erro ao deletar barbeiro:', error);
         return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const updateBarbeiroController = async (req: Request, res: Response) => {
+    try {
+        const { barbeiroId } = req.params;
+        const { nome, telefone, email } = req.body;
+
+        const resultado = await updateBarbeiroService(barbeiroId, { nome, telefone, email });
+
+        return res.status(200).json({
+            message: "Barbeiro atualizado com sucesso!",
+            barbeiro: resultado
+        });
+    } catch (error: any) {
+        console.error("Erro ao atualizar barbeiro:", error);
+        return res.status(error.status || 500).json({ error: error.message || "Erro interno do servidor." });
+    }
+};
+
+export const getHorariosPorDiaController = async (req: Request, res: Response) => {
+    try {
+        const { barbeiroId, diaSemana } = req.params;
+        const horarios = await getHorariosPorDiaService(barbeiroId, diaSemana);
+        return res.status(200).json({ horarios });
+    } catch (error: any) {
+        console.error("Erro ao buscar horários do barbeiro:", error);
+        return res.status(error.status || 500).json({ error: error.message || "Erro interno do servidor." });
     }
 };
