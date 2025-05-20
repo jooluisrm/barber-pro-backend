@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, criarProdutoService, criarServicoService, deletarProdutoService, deletarServicoService, deleteBarbeiroService, editarProdutoService, editarServicoService, getAgendamentosService, getHorariosPorDiaService, listarProdutosService, listarServicosDaBarbeariaService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateBarbeiroService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createFormaPagamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosService, getFormasPagamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateBarbeiroService, updateStatusAgendamentoService } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -506,6 +506,162 @@ export const deletarProdutoController = async (req: Request, res: Response) => {
         return res.status(200).json({ message: 'Produto deletado com sucesso!' });
     } catch (error) {
         console.error('Erro ao deletar produto:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const listarRedesSociaisController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+
+        if (!barbeariaId) {
+            return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
+        }
+
+        const redesSociais = await listarRedesSociaisService(barbeariaId);
+
+        return res.status(200).json(redesSociais);
+    } catch (error) {
+        console.error('Erro ao buscar redes sociais da barbearia:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const criarRedeSocialController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+        const { rede, link } = req.body;
+
+        if (!barbeariaId || !rede || !link) {
+            return res.status(400).json({ error: 'Barbearia, nome da rede e link são obrigatórios.' });
+        }
+
+        const novaRede = await criarRedeSocialService(barbeariaId, rede, link);
+
+        return res.status(201).json({
+            message: 'Rede social criada com sucesso!',
+            redeSocial: novaRede,
+        });
+    } catch (error: any) {
+        if (error.message.includes('já está cadastrada')) {
+            return res.status(400).json({ error: error.message });
+        }
+        console.error('Erro ao criar rede social:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const editarRedeSocialController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, redeId } = req.params;
+        const { link } = req.body;
+
+        if (!link || typeof link !== 'string') {
+            return res.status(400).json({ error: 'O link é obrigatório.' });
+        }
+
+        const redeAtualizada = await editarRedeSocialService(barbeariaId, redeId, link);
+
+        return res.status(200).json({
+            message: 'Link da rede social atualizado com sucesso!',
+            redeSocial: redeAtualizada,
+        });
+    } catch (error: any) {
+        if (
+            error.message === 'Rede social não encontrada para esta barbearia.' ||
+            error.message === 'Nenhuma alteração detectada. O link é igual ao atual.'
+        ) {
+            return res.status(400).json({ error: error.message });
+        }
+
+        console.error('Erro ao editar link da rede social:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const deletarRedeSocialController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, redeId } = req.params;
+
+        await deletarRedeSocialService(barbeariaId, redeId);
+
+        return res.status(200).json({ message: 'Rede social deletada com sucesso.' });
+    } catch (error: any) {
+        if (error.message === 'Rede social não encontrada para esta barbearia.') {
+            return res.status(404).json({ error: error.message });
+        }
+
+        console.error('Erro ao deletar rede social:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const getFormasPagamentoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+
+        if (!barbeariaId) {
+            return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
+        }
+
+        const formasPagamento = await getFormasPagamentoService(barbeariaId);
+
+        return res.status(200).json(formasPagamento);
+    } catch (error) {
+        console.error('Erro ao buscar formas de pagamento da barbearia:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+
+export const createFormaPagamentoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+        const { tipo } = req.body;
+
+        if (!barbeariaId) {
+            return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
+        }
+
+        if (!tipo || typeof tipo !== 'string' || tipo.trim() === '') {
+            return res.status(400).json({ error: 'O tipo da forma de pagamento é obrigatório e deve ser uma string válida.' });
+        }
+
+        const novaForma = await createFormaPagamentoService(barbeariaId, tipo.trim());
+
+        return res.status(201).json({
+            message: 'Forma de pagamento criada com sucesso!',
+            formaPagamento: novaForma,
+        });
+    } catch (error: any) {
+        console.error('Erro ao criar forma de pagamento:', error);
+
+        if (error.code === 'P2002') { // Erro de constraint unique no Prisma
+            return res.status(400).json({ error: 'Essa forma de pagamento já está cadastrada para a barbearia.' });
+        }
+
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const deleteFormaPagamentoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, formaPagamentoId } = req.params;
+
+        if (!barbeariaId || !formaPagamentoId) {
+            return res.status(400).json({ error: 'ID da barbearia e da forma de pagamento são obrigatórios.' });
+        }
+
+        await deleteFormaPagamentoService(barbeariaId, formaPagamentoId);
+
+        return res.status(200).json({ message: 'Forma de pagamento deletada com sucesso.' });
+    } catch (error: any) {
+        console.error('Erro ao deletar forma de pagamento:', error);
+
+        if (error.code === 'NOT_FOUND') {
+            return res.status(404).json({ error: 'Forma de pagamento não encontrada para esta barbearia.' });
+        }
+
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };

@@ -28,6 +28,13 @@ import {
     criarProdutoController,
     editarProdutoController,
     deletarProdutoController,
+    listarRedesSociaisController,
+    criarRedeSocialController,
+    editarRedeSocialController,
+    deletarRedeSocialController,
+    getFormasPagamentoController,
+    createFormaPagamentoController,
+    deleteFormaPagamentoController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 
@@ -63,5 +70,12 @@ router.get('/:barbeariaId/produtos', listarProdutosController);
 router.post('/:barbeariaId/produtos', criarProdutoController);
 router.put('/:barbeariaId/produtos/:produtoId', editarProdutoController);
 router.delete('/:barbeariaId/produtos/:produtoId', deletarProdutoController);
+router.get('/:barbeariaId/redes-sociais', listarRedesSociaisController);
+router.post('/:barbeariaId/redes-sociais', criarRedeSocialController);
+router.put('/:barbeariaId/redes-sociais/:redeId', editarRedeSocialController);
+router.delete('/:barbeariaId/redes-sociais/:redeId', deletarRedeSocialController);
+router.get('/:barbeariaId/formas-pagamento', getFormasPagamentoController);
+router.post('/:barbeariaId/formas-pagamento', createFormaPagamentoController);
+router.delete('/:barbeariaId/formas-pagamento/:formaPagamentoId', deleteFormaPagamentoController);
 
 export default router;

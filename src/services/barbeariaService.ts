@@ -766,3 +766,120 @@ export const deletarProdutoService = async ({ barbeariaId, produtoId }: DeletarP
 
     return true;
 };
+
+export const listarRedesSociaisService = async (barbeariaId: string) => {
+    return await prisma.redeSocial.findMany({
+        where: { barbeariaId },
+        orderBy: { rede: 'asc' },
+    });
+};
+
+export const criarRedeSocialService = async (barbeariaId: string, rede: string, link: string) => {
+    // Verifica se já existe
+    const redeExistente = await prisma.redeSocial.findFirst({
+        where: {
+            barbeariaId,
+            rede,
+        },
+    });
+
+    if (redeExistente) {
+        throw new Error(`A rede social "${rede}" já está cadastrada para esta barbearia.`);
+    }
+
+    // Cria a nova rede social
+    return await prisma.redeSocial.create({
+        data: {
+            barbeariaId,
+            rede,
+            link,
+        },
+    });
+};
+
+export const editarRedeSocialService = async (barbeariaId: string, redeId: string, link: string) => {
+    const redeExistente = await prisma.redeSocial.findFirst({
+        where: {
+            id: redeId,
+            barbeariaId,
+        },
+    });
+
+    if (!redeExistente) {
+        throw new Error('Rede social não encontrada para esta barbearia.');
+    }
+
+    if (redeExistente.link === link) {
+        throw new Error('Nenhuma alteração detectada. O link é igual ao atual.');
+    }
+
+    return await prisma.redeSocial.update({
+        where: { id: redeId },
+        data: { link },
+    });
+};
+
+export const deletarRedeSocialService = async (barbeariaId: string, redeId: string) => {
+    const redeExistente = await prisma.redeSocial.findFirst({
+        where: {
+            id: redeId,
+            barbeariaId,
+        },
+    });
+
+    if (!redeExistente) {
+        throw new Error('Rede social não encontrada para esta barbearia.');
+    }
+
+    await prisma.redeSocial.delete({
+        where: { id: redeId },
+    });
+};
+
+export const getFormasPagamentoService = async (barbeariaId: string) => {
+    return await prisma.formaPagamento.findMany({
+        where: { barbeariaId },
+        orderBy: { tipo: 'asc' },
+    });
+};
+
+export const createFormaPagamentoService = async (barbeariaId: string, tipo: string) => {
+    // Verifica duplicidade antes de criar
+    const formaExistente = await prisma.formaPagamento.findFirst({
+        where: { barbeariaId, tipo },
+    });
+
+    if (formaExistente) {
+        const error: any = new Error('Forma de pagamento já existe');
+        error.code = 'P2002'; // Código custom para simular erro de duplicidade
+        throw error;
+    }
+
+    const novaForma = await prisma.formaPagamento.create({
+        data: {
+            barbeariaId,
+            tipo,
+        },
+    });
+
+    return novaForma;
+};
+
+export const deleteFormaPagamentoService = async (barbeariaId: string, formaPagamentoId: string) => {
+    const formaPagamento = await prisma.formaPagamento.findFirst({
+        where: {
+            id: formaPagamentoId,
+            barbeariaId,
+        },
+    });
+
+    if (!formaPagamento) {
+        const error: any = new Error('Forma de pagamento não encontrada');
+        error.code = 'NOT_FOUND';
+        throw error;
+    }
+
+    await prisma.formaPagamento.delete({
+        where: { id: formaPagamentoId },
+    });
+};
