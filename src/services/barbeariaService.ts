@@ -347,3 +347,104 @@ export const getAgendamentosService = async (barbeariaId: string) => {
 
     return agendamentos;
 };
+
+export const updateStatusAgendamentoService = async (agendamentoId: string, status: string) => {
+    const updatedAgendamento = await prisma.agendamento.update({
+        where: { id: agendamentoId },
+        data: { status },
+    });
+
+    return updatedAgendamento;
+};
+
+interface BarbeiroInput {
+    nome: string;
+    email: string;
+    senha: string;
+    telefone: string;
+    fotoPerfil?: string;
+    barbeariaId: string;
+}
+
+export const registerBarbeiroService = async ({
+    nome,
+    email,
+    senha,
+    telefone,
+    fotoPerfil,
+    barbeariaId,
+}: BarbeiroInput) => {
+
+    // Verifica se e-mail já existe
+    const barbeiroExistente = await prisma.barbeiro.findUnique({
+        where: { email },
+    });
+
+    if (barbeiroExistente) {
+        throw { status: 400, message: 'E-mail já cadastrado.' };
+    }
+
+    // Verifica se barbearia existe
+    const barbeariaExistente = await prisma.barbearia.findUnique({
+        where: { id: barbeariaId },
+    });
+
+    if (!barbeariaExistente) {
+        throw { status: 404, message: 'Barbearia não encontrada.' };
+    }
+
+    // Criptografa senha
+    const senhaHash = await bcrypt.hash(senha, 10);
+
+    // Cria barbeiro
+    const novoBarbeiro = await prisma.barbeiro.create({
+        data: {
+            nome,
+            email,
+            senha: senhaHash,
+            telefone,
+            fotoPerfil,
+            barbeariaId,
+        },
+    });
+
+    return novoBarbeiro;
+};
+
+export const deleteBarbeiroService = async (barbeiroId: string) => {
+    // Verifica se há agendamentos confirmados
+    const agendamentosPendentes = await prisma.agendamento.findFirst({
+        where: { barbeiroId, status: "Confirmado" },
+    });
+
+    if (agendamentosPendentes) {
+        throw { status: 400, message: "Este barbeiro possui agendamentos confirmados e não pode ser excluído." };
+    }
+
+    // Verifica se o barbeiro existe
+    const barbeiroExiste = await prisma.barbeiro.findUnique({
+        where: { id: barbeiroId },
+    });
+
+    if (!barbeiroExiste) {
+        throw { status: 404, message: "Barbeiro não encontrado." };
+    }
+
+    // Deleta horários de trabalho (se houver)
+    const horariosExistem = await prisma.horarioTrabalho.findFirst({
+        where: { barbeiroId },
+    });
+
+    if (horariosExistem) {
+        await prisma.horarioTrabalho.deleteMany({
+            where: { barbeiroId },
+        });
+    }
+
+    // Deleta o barbeiro
+    await prisma.barbeiro.delete({
+        where: { id: barbeiroId },
+    });
+
+    return "Barbeiro deletado com sucesso!";
+};

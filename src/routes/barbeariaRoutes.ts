@@ -15,6 +15,9 @@ import {
     registrarBarbearia,
     loginBarbeariaController,
     getAgendamentosController,
+    updateStatusAgendamentoController,
+    registerBarbeiroController,
+    deleteBarbeiroController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 
@@ -37,5 +40,8 @@ router.get('/:barbeariaId/redes-sociais', obterRedesSociais);
 router.post('/registrar', registrarBarbearia);
 router.post('/login', loginBarbeariaController);
 router.get('/agendamentos/:barbeariaId', getAgendamentosController);
+router.put('/agendamento/status/:agendamentoId', updateStatusAgendamentoController);
+router.post('/barbeiro/register', registerBarbeiroController);
+router.delete('/barbeiro/:barbeiroId', deleteBarbeiroController);
 
 export default router;

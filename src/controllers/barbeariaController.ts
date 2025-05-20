@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, getAgendamentosService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registrarNovaBarbearia } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, deleteBarbeiroService, getAgendamentosService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateStatusAgendamentoService } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -252,5 +252,61 @@ export const getAgendamentosController = async (req: Request, res: Response) => 
     } catch (error) {
         console.error('Erro ao buscar agendamentos:', error);
         return res.status(500).json({ error: 'Erro ao buscar agendamentos' });
+    }
+};
+
+export const updateStatusAgendamentoController = async (req: Request, res: Response) => {
+    try {
+        const { agendamentoId } = req.params;
+        const { status } = req.body;
+
+        // Validação básica no controller
+        if (!["Confirmado", "Feito", "Cancelado"].includes(status)) {
+            return res.status(400).json({ error: "Status inválido. O status deve ser 'Confirmado', 'Feito' ou 'Cancelado'." });
+        }
+
+        const agendamentoAtualizado = await updateStatusAgendamentoService(agendamentoId, status);
+        return res.json(agendamentoAtualizado);
+    } catch (error) {
+        console.error('Erro ao atualizar status do agendamento:', error);
+        return res.status(500).json({ error: "Erro ao atualizar o status do agendamento" });
+    }
+};
+
+
+export const registerBarbeiroController = async (req: Request, res: Response) => {
+    try {
+        const { nome, email, senha, telefone, fotoPerfil, barbeariaId } = req.body;
+
+        if (!nome || !email || !senha || !telefone || !barbeariaId) {
+            return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
+        }
+
+        const novoBarbeiro = await registerBarbeiroService({
+            nome,
+            email,
+            senha,
+            telefone,
+            fotoPerfil,
+            barbeariaId,
+        });
+
+        return res.status(201).json({ message: 'Barbeiro cadastrado com sucesso!', barbeiro: novoBarbeiro });
+    } catch (error: any) {
+        console.error('Erro ao registrar barbeiro:', error);
+        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const deleteBarbeiroController = async (req: Request, res: Response) => {
+    try {
+        const { barbeiroId } = req.params;
+
+        const resultado = await deleteBarbeiroService(barbeiroId);
+
+        return res.status(200).json({ message: resultado });
+    } catch (error: any) {
+        console.error('Erro ao deletar barbeiro:', error);
+        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
     }
 };
