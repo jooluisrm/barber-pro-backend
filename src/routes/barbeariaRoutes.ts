@@ -39,6 +39,7 @@ import {
     createHorarioFuncionamentoController,
     updateHorarioFuncionamentoController,
     deleteHorarioFuncionamentoController,
+    createAgendamentoVisitanteController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 
@@ -85,5 +86,6 @@ router.get('/:barbeariaId/horarios-funcionamento', getHorariosFuncionamentoContr
 router.post('/:barbeariaId/horario-funcionamento', createHorarioFuncionamentoController);
 router.put('/:barbeariaId/horario-funcionamento/:horarioId', updateHorarioFuncionamentoController);
 router.delete('/:barbeariaId/horario-funcionamento/:horarioId', deleteHorarioFuncionamentoController);
+router.post('/agendamentos/visitante', createAgendamentoVisitanteController);
 
 export default router;

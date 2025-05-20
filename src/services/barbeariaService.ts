@@ -1022,3 +1022,58 @@ export const deleteHorarioFuncionamentoService = async ({ barbeariaId, horarioId
         where: { id: horarioId },
     });
 };
+
+interface AgendamentoVisitanteInput {
+    barbeariaId: string;
+    barbeiroId: string;
+    servicoId: string;
+    data: string;
+    hora: string;
+}
+
+export const createAgendamentoVisitanteService = async ({
+    barbeariaId,
+    barbeiroId,
+    servicoId,
+    data,
+    hora
+}: AgendamentoVisitanteInput) => {
+    const usuarioId = "visitante";
+
+    // Verificação de campos obrigatórios
+    if (!barbeariaId || !barbeiroId || !servicoId || !data || !hora) {
+        const error = new Error('Todos os campos são obrigatórios.');
+        (error as any).statusCode = 400;
+        throw error;
+    }
+
+    // Verifica se o horário já está ocupado (exceto se estiver cancelado)
+    const agendamentoExistente = await prisma.agendamento.findFirst({
+        where: {
+            barbeiroId,
+            data,
+            hora,
+        },
+    });
+
+    if (agendamentoExistente && agendamentoExistente.status !== "Cancelado") {
+        const error = new Error('Esse horário já está agendado para o barbeiro selecionado.');
+        (error as any).statusCode = 400;
+        throw error;
+    }
+
+    // Cria o agendamento
+    const novoAgendamento = await prisma.agendamento.create({
+        data: {
+            usuarioId,
+            barbeariaId,
+            barbeiroId,
+            servicoId,
+            data,
+            hora,
+            status: 'Confirmado',
+        },
+    });
+
+    return novoAgendamento;
+};

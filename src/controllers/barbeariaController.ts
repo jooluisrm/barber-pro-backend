@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateBarbeiroService, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateBarbeiroService, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -749,6 +749,18 @@ export const deleteHorarioFuncionamentoController = async (req: Request, res: Re
         return res.status(200).json({ message: 'Horário de funcionamento deletado com sucesso.' });
     } catch (error: any) {
         console.error('Erro ao deletar horário de funcionamento:', error);
+        return res.status(error.statusCode || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const createAgendamentoVisitanteController = async (req: Request, res: Response) => {
+    try {
+        const data = req.body;
+        const agendamento = await createAgendamentoVisitanteService(data);
+
+        return res.status(201).json(agendamento);
+    } catch (error: any) {
+        console.error("Erro ao criar agendamento:", error);
         return res.status(error.statusCode || 500).json({ error: error.message || 'Erro interno do servidor.' });
     }
 };
