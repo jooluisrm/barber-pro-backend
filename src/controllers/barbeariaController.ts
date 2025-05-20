@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, deleteBarbeiroService, getAgendamentosService, getHorariosPorDiaService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateBarbeiroService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, CriarAvaliacao, criarProdutoService, criarServicoService, deletarProdutoService, deletarServicoService, deleteBarbeiroService, editarProdutoService, editarServicoService, getAgendamentosService, getHorariosPorDiaService, listarProdutosService, listarServicosDaBarbeariaService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateBarbeiroService, updateStatusAgendamentoService } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -336,5 +336,176 @@ export const getHorariosPorDiaController = async (req: Request, res: Response) =
     } catch (error: any) {
         console.error("Erro ao buscar horários do barbeiro:", error);
         return res.status(error.status || 500).json({ error: error.message || "Erro interno do servidor." });
+    }
+};
+
+export const listarServicosController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+
+        const servicos = await listarServicosDaBarbeariaService(barbeariaId);
+
+        return res.status(200).json(servicos);
+    } catch (error: any) {
+        console.error('Erro ao buscar serviços da barbearia:', error);
+        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const criarServicoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+        const { nome, duracao, preco } = req.body;
+
+        const novoServico = await criarServicoService({ barbeariaId, nome, duracao, preco });
+
+        return res.status(201).json({
+            message: 'Serviço criado com sucesso!',
+            servico: novoServico,
+        });
+    } catch (error: any) {
+        console.error('Erro ao criar serviço:', error);
+        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const editarServicoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, servicoId } = req.params;
+        const { nome, duracao, preco } = req.body;
+
+        const servicoAtualizado = await editarServicoService({ barbeariaId, servicoId, nome, duracao, preco });
+
+        return res.status(200).json({
+            message: 'Serviço atualizado com sucesso!',
+            servico: servicoAtualizado,
+        });
+    } catch (error: any) {
+        console.error('Erro ao editar serviço:', error);
+        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const deletarServicoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, servicoId } = req.params;
+
+        await deletarServicoService({ barbeariaId, servicoId });
+
+        return res.status(200).json({ message: 'Serviço deletado com sucesso.' });
+    } catch (error: any) {
+        console.error('Erro ao deletar serviço:', error);
+        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const listarProdutosController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+
+        if (!barbeariaId) {
+            return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
+        }
+
+        const produtos = await listarProdutosService(barbeariaId);
+
+        return res.status(200).json(produtos);
+    } catch (error) {
+        console.error('Erro ao buscar produtos da barbearia:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const criarProdutoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+        const { nome, descricao, tipo, preco, imagemUrl } = req.body;
+
+        // Validação básica no controller para evitar requisições inválidas
+        if (!nome || typeof nome !== 'string') {
+            return res.status(400).json({ error: 'Nome do produto é obrigatório.' });
+        }
+        if (!tipo || typeof tipo !== 'string') {
+            return res.status(400).json({ error: 'Tipo do produto é obrigatório.' });
+        }
+        if (preco === undefined || isNaN(Number(preco)) || Number(preco) < 0) {
+            return res.status(400).json({ error: 'Preço do produto é obrigatório e deve ser positivo.' });
+        }
+
+        const novoProduto = await criarProdutoService({
+            barbeariaId,
+            nome,
+            descricao,
+            tipo,
+            preco: Number(preco),
+            imagemUrl,
+        });
+
+        return res.status(201).json({
+            message: 'Produto criado com sucesso!',
+            produto: novoProduto,
+        });
+    } catch (error) {
+        console.error('Erro ao criar produto:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const editarProdutoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, produtoId } = req.params;
+        const { nome, descricao, tipo, preco } = req.body;
+
+        if (!nome || typeof nome !== 'string') {
+            return res.status(400).json({ error: 'Nome do produto é obrigatório.' });
+        }
+        if (!tipo || typeof tipo !== 'string') {
+            return res.status(400).json({ error: 'Tipo do produto é obrigatório.' });
+        }
+        if (preco === undefined || isNaN(Number(preco)) || Number(preco) < 0) {
+            return res.status(400).json({ error: 'Preço do produto é obrigatório e deve ser positivo.' });
+        }
+
+        const produtoAtualizado = await editarProdutoService({
+            barbeariaId,
+            produtoId,
+            nome,
+            descricao,
+            tipo,
+            preco: Number(preco),
+        });
+
+        if (!produtoAtualizado) {
+            return res.status(404).json({ error: 'Produto não encontrado para esta barbearia.' });
+        }
+
+        return res.status(200).json({
+            message: 'Produto atualizado com sucesso!',
+            produto: produtoAtualizado,
+        });
+    } catch (error) {
+        console.error('Erro ao editar produto:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const deletarProdutoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, produtoId } = req.params;
+
+        if (!barbeariaId || !produtoId) {
+            return res.status(400).json({ error: 'ID da barbearia e do produto são obrigatórios.' });
+        }
+
+        const sucesso = await deletarProdutoService({ barbeariaId, produtoId });
+
+        if (!sucesso) {
+            return res.status(404).json({ error: 'Produto não encontrado para esta barbearia.' });
+        }
+
+        return res.status(200).json({ message: 'Produto deletado com sucesso!' });
+    } catch (error) {
+        console.error('Erro ao deletar produto:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };

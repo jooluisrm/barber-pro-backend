@@ -20,6 +20,14 @@ import {
     deleteBarbeiroController,
     updateBarbeiroController,
     getHorariosPorDiaController,
+    listarServicosController,
+    criarServicoController,
+    editarServicoController,
+    deletarServicoController,
+    listarProdutosController,
+    criarProdutoController,
+    editarProdutoController,
+    deletarProdutoController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 
@@ -47,5 +55,13 @@ router.post('/barbeiro/register', registerBarbeiroController);
 router.delete('/barbeiro/:barbeiroId', deleteBarbeiroController);
 router.put('/barbeiro/:barbeiroId', updateBarbeiroController);
 router.get('/barbeiro/:barbeiroId/horarios/:diaSemana', getHorariosPorDiaController);
+router.get('/:barbeariaId/servicos', listarServicosController);
+router.post('/:barbeariaId/servicos', criarServicoController);
+router.put('/:barbeariaId/servicos/:servicoId', editarServicoController);
+router.delete('/:barbeariaId/servicos/:servicoId', deletarServicoController);
+router.get('/:barbeariaId/produtos', listarProdutosController);
+router.post('/:barbeariaId/produtos', criarProdutoController);
+router.put('/:barbeariaId/produtos/:produtoId', editarProdutoController);
+router.delete('/:barbeariaId/produtos/:produtoId', deletarProdutoController);
 
 export default router;

@@ -530,3 +530,239 @@ export const getHorariosPorDiaService = async (barbeiroId: string, diaSemana: st
 
     return horarios;
 };
+export const listarServicosDaBarbeariaService = async (barbeariaId: string) => {
+    if (!barbeariaId) {
+        throw { status: 400, message: 'ID da barbearia é obrigatório.' };
+    }
+
+    const servicos = await prisma.servico.findMany({
+        where: { barbeariaId },
+        orderBy: { nome: 'asc' }, // ordenação opcional
+    });
+
+    return servicos;
+};
+
+interface CriarServicoProps {
+    barbeariaId: string;
+    nome: string;
+    duracao: number;
+    preco?: number;
+}
+
+export const criarServicoService = async ({ barbeariaId, nome, duracao, preco }: CriarServicoProps) => {
+    if (!nome || typeof nome !== 'string') {
+        throw { status: 400, message: 'Nome do serviço é obrigatório e deve ser uma string.' };
+    }
+
+    if (duracao === undefined || isNaN(Number(duracao)) || Number(duracao) <= 0) {
+        throw { status: 400, message: 'Duração do serviço é obrigatória e deve ser um número positivo.' };
+    }
+
+    let precoFormatado: number | null = null;
+    if (preco !== undefined) {
+        const precoNumber = Number(preco);
+        if (isNaN(precoNumber) || precoNumber < 0) {
+            throw { status: 400, message: 'Preço, se fornecido, deve ser um número positivo.' };
+        }
+        precoFormatado = precoNumber;
+    }
+
+    const novoServico = await prisma.servico.create({
+        data: {
+            barbeariaId,
+            nome,
+            duracao: Number(duracao),
+            preco: precoFormatado,
+        },
+    });
+
+    return novoServico;
+};
+
+interface EditarServicoProps {
+    barbeariaId: string;
+    servicoId: string;
+    nome: string;
+    duracao: number;
+    preco?: number;
+}
+
+export const editarServicoService = async ({ barbeariaId, servicoId, nome, duracao, preco }: EditarServicoProps) => {
+    if (!nome || typeof nome !== 'string') {
+        throw { status: 400, message: 'Nome do serviço é obrigatório e deve ser uma string.' };
+    }
+
+    if (duracao === undefined || isNaN(Number(duracao)) || Number(duracao) < 5) {
+        throw { status: 400, message: 'Duração do serviço é obrigatória e deve ser no mínimo 5 minutos.' };
+    }
+
+    let precoFormatado: number | null = null;
+    if (preco !== undefined) {
+        const precoNumber = Number(preco);
+        if (isNaN(precoNumber) || precoNumber < 0) {
+            throw { status: 400, message: 'Preço, se fornecido, deve ser um número positivo.' };
+        }
+        precoFormatado = precoNumber;
+    }
+
+    const servicoExistente = await prisma.servico.findUnique({
+        where: { id: servicoId },
+    });
+
+    if (!servicoExistente || servicoExistente.barbeariaId !== barbeariaId) {
+        throw { status: 404, message: 'Serviço não encontrado para esta barbearia.' };
+    }
+
+    const semAlteracoes =
+        servicoExistente.nome === nome &&
+        servicoExistente.duracao === Number(duracao) &&
+        String(servicoExistente.preco || '') === String(precoFormatado || '');
+
+    if (semAlteracoes) {
+        throw { status: 400, message: 'Nenhuma alteração foi feita.' };
+    }
+
+    const servicoAtualizado = await prisma.servico.update({
+        where: { id: servicoId },
+        data: {
+            nome,
+            duracao: Number(duracao),
+            preco: precoFormatado,
+        },
+    });
+
+    return servicoAtualizado;
+};
+
+interface DeletarServicoProps {
+    barbeariaId: string;
+    servicoId: string;
+}
+
+export const deletarServicoService = async ({ barbeariaId, servicoId }: DeletarServicoProps) => {
+    const servicoExistente = await prisma.servico.findFirst({
+        where: {
+            id: servicoId,
+            barbeariaId,
+        },
+    });
+
+    if (!servicoExistente) {
+        throw { status: 404, message: 'Serviço não encontrado para esta barbearia.' };
+    }
+
+    await prisma.servico.delete({
+        where: { id: servicoId },
+    });
+};
+
+export const listarProdutosService = async (barbeariaId: string) => {
+    const produtos = await prisma.produto.findMany({
+        where: { barbeariaId },
+        orderBy: { nome: 'asc' },
+    });
+
+    return produtos;
+};
+
+interface CriarProdutoDTO {
+    barbeariaId: string;
+    nome: string;
+    descricao?: string;
+    tipo: string;
+    preco: number;
+    imagemUrl?: string;
+}
+
+export const criarProdutoService = async ({
+    barbeariaId,
+    nome,
+    descricao,
+    tipo,
+    preco,
+    imagemUrl,
+}: CriarProdutoDTO) => {
+    const novoProduto = await prisma.produto.create({
+        data: {
+            barbeariaId,
+            nome,
+            descricao: descricao || null,
+            tipo,
+            preco,
+            imagemUrl: imagemUrl || null,
+            estoque: true,
+        },
+    });
+
+    return novoProduto;
+};
+
+interface EditarProdutoDTO {
+    barbeariaId: string;
+    produtoId: string;
+    nome: string;
+    descricao?: string;
+    tipo: string;
+    preco: number;
+}
+
+export const editarProdutoService = async ({
+    barbeariaId,
+    produtoId,
+    nome,
+    descricao,
+    tipo,
+    preco,
+}: EditarProdutoDTO) => {
+    const produtoExistente = await prisma.produto.findUnique({
+        where: { id: produtoId },
+    });
+
+    if (!produtoExistente || produtoExistente.barbeariaId !== barbeariaId) {
+        return null;
+    }
+
+    const dadosIguais =
+        produtoExistente.nome === nome &&
+        produtoExistente.descricao === descricao &&
+        produtoExistente.tipo === tipo &&
+        Number(produtoExistente.preco) === preco;
+
+    if (dadosIguais) {
+        throw new Error('Nenhuma alteração foi feita no produto.');
+    }
+
+    const produtoAtualizado = await prisma.produto.update({
+        where: { id: produtoId },
+        data: {
+            nome,
+            descricao,
+            tipo,
+            preco,
+        },
+    });
+
+    return produtoAtualizado;
+};
+
+interface DeletarProdutoDTO {
+    barbeariaId: string;
+    produtoId: string;
+}
+
+export const deletarProdutoService = async ({ barbeariaId, produtoId }: DeletarProdutoDTO) => {
+    const produtoExistente = await prisma.produto.findUnique({
+        where: { id: produtoId },
+    });
+
+    if (!produtoExistente || produtoExistente.barbeariaId !== barbeariaId) {
+        return false;
+    }
+
+    await prisma.produto.delete({
+        where: { id: produtoId },
+    });
+
+    return true;
+};
