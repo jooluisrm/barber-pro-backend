@@ -883,3 +883,142 @@ export const deleteFormaPagamentoService = async (barbeariaId: string, formaPaga
         where: { id: formaPagamentoId },
     });
 };
+
+export const getHorariosFuncionamentoService = async (barbeariaId: string) => {
+    const horarios = await prisma.horariosFuncionamentoBarbearia.findMany({
+        where: { barbeariaId },
+        orderBy: { diaSemana: 'asc' },
+    });
+
+    return horarios;
+};
+
+interface CreateHorarioParams {
+    barbeariaId: string;
+    diaSemana: number;
+    horaInicio: string;
+    horaFim: string;
+}
+
+export const createHorarioFuncionamentoService = async ({
+    barbeariaId,
+    diaSemana,
+    horaInicio,
+    horaFim,
+}: CreateHorarioParams) => {
+    // Verifica se já existe horário cadastrado para o dia
+    const horarioExistente = await prisma.horariosFuncionamentoBarbearia.findFirst({
+        where: {
+            barbeariaId,
+            diaSemana,
+        },
+    });
+
+    if (horarioExistente) {
+        const error = new Error('Já existe um horário cadastrado para esse dia da semana nesta barbearia.');
+        (error as any).statusCode = 400;
+        throw error;
+    }
+
+    // Validação: horaInicio < horaFim
+    const [inicioHoras, inicioMinutos] = horaInicio.split(':').map(Number);
+    const [fimHoras, fimMinutos] = horaFim.split(':').map(Number);
+    const inicioEmMinutos = inicioHoras * 60 + inicioMinutos;
+    const fimEmMinutos = fimHoras * 60 + fimMinutos;
+
+    if (inicioEmMinutos >= fimEmMinutos) {
+        const error = new Error('O horário de início deve ser menor que o horário de término.');
+        (error as any).statusCode = 400;
+        throw error;
+    }
+
+    // Criação do horário
+    const novoHorario = await prisma.horariosFuncionamentoBarbearia.create({
+        data: {
+            barbeariaId,
+            diaSemana,
+            horaInicio,
+            horaFim,
+        },
+    });
+
+    return novoHorario;
+};
+
+interface UpdateHorarioParams {
+    barbeariaId: string;
+    horarioId: string;
+    horaInicio: string;
+    horaFim: string;
+}
+
+export const updateHorarioFuncionamentoService = async ({
+    barbeariaId,
+    horarioId,
+    horaInicio,
+    horaFim,
+}: UpdateHorarioParams) => {
+    // Valida se horaInicio < horaFim
+    const [hInicioH, hInicioM] = horaInicio.split(':').map(Number);
+    const [hFimH, hFimM] = horaFim.split(':').map(Number);
+    const minutosInicio = hInicioH * 60 + hInicioM;
+    const minutosFim = hFimH * 60 + hFimM;
+
+    if (minutosInicio >= minutosFim) {
+        const error = new Error('O horário de início deve ser menor que o horário de fim.');
+        (error as any).statusCode = 400;
+        throw error;
+    }
+
+    // Verifica se o horário existe
+    const horarioExistente = await prisma.horariosFuncionamentoBarbearia.findFirst({
+        where: {
+            id: horarioId,
+            barbeariaId,
+        },
+    });
+
+    if (!horarioExistente) {
+        const error = new Error('Horário de funcionamento não encontrado.');
+        (error as any).statusCode = 404;
+        throw error;
+    }
+
+    // Verifica se houve alteração
+    if (horarioExistente.horaInicio === horaInicio && horarioExistente.horaFim === horaFim) {
+        const error = new Error('Nenhuma alteração detectada nos horários.');
+        (error as any).statusCode = 400;
+        throw error;
+    }
+
+    const horarioAtualizado = await prisma.horariosFuncionamentoBarbearia.update({
+        where: { id: horarioId },
+        data: { horaInicio, horaFim },
+    });
+
+    return horarioAtualizado;
+};
+
+interface DeleteHorarioParams {
+    barbeariaId: string;
+    horarioId: string;
+}
+
+export const deleteHorarioFuncionamentoService = async ({ barbeariaId, horarioId }: DeleteHorarioParams) => {
+    const horario = await prisma.horariosFuncionamentoBarbearia.findFirst({
+        where: {
+            id: horarioId,
+            barbeariaId,
+        },
+    });
+
+    if (!horario) {
+        const error = new Error('Horário de funcionamento não encontrado para esta barbearia.');
+        (error as any).statusCode = 404;
+        throw error;
+    }
+
+    await prisma.horariosFuncionamentoBarbearia.delete({
+        where: { id: horarioId },
+    });
+};

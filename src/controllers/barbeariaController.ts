@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createFormaPagamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosService, getFormasPagamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateBarbeiroService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateBarbeiroService, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -663,5 +663,92 @@ export const deleteFormaPagamentoController = async (req: Request, res: Response
         }
 
         return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const getHorariosFuncionamentoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+
+        if (!barbeariaId) {
+            return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
+        }
+
+        const horarios = await getHorariosFuncionamentoService(barbeariaId);
+
+        return res.status(200).json(horarios);
+    } catch (error) {
+        console.error('Erro ao buscar horários de funcionamento:', error);
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+};
+
+export const createHorarioFuncionamentoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId } = req.params;
+        const { diaSemana, horaInicio, horaFim } = req.body;
+
+        if (!barbeariaId || diaSemana === undefined || !horaInicio || !horaFim) {
+            return res.status(400).json({ error: 'Campos obrigatórios: barbeariaId, diaSemana, horaInicio, horaFim.' });
+        }
+
+        const dia = Number(diaSemana);
+        if (isNaN(dia) || dia < 0 || dia > 6) {
+            return res.status(400).json({ error: 'O campo "diaSemana" deve ser um número entre 0 e 6.' });
+        }
+
+        const novoHorario = await createHorarioFuncionamentoService({
+            barbeariaId,
+            diaSemana: dia,
+            horaInicio,
+            horaFim,
+        });
+
+        return res.status(201).json({
+            message: 'Horário de funcionamento cadastrado com sucesso!',
+            horario: novoHorario,
+        });
+    } catch (error: any) {
+        console.error('Erro ao cadastrar horário de funcionamento:', error);
+        return res.status(error.statusCode || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const updateHorarioFuncionamentoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, horarioId } = req.params;
+        const { horaInicio, horaFim } = req.body;
+
+        if (!horaInicio || !horaFim) {
+            return res.status(400).json({ error: 'Horário de início e fim são obrigatórios.' });
+        }
+
+        const horarioAtualizado = await updateHorarioFuncionamentoService({
+            barbeariaId,
+            horarioId,
+            horaInicio,
+            horaFim,
+        });
+
+        return res.status(200).json({
+            message: 'Horário de funcionamento atualizado com sucesso!',
+            horario: horarioAtualizado,
+        });
+    } catch (error: any) {
+        console.error('Erro ao atualizar horário de funcionamento:', error);
+        return res.status(error.statusCode || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+export const deleteHorarioFuncionamentoController = async (req: Request, res: Response) => {
+    try {
+        const { barbeariaId, horarioId } = req.params;
+
+        await deleteHorarioFuncionamentoService({ barbeariaId, horarioId });
+
+        return res.status(200).json({ message: 'Horário de funcionamento deletado com sucesso.' });
+    } catch (error: any) {
+        console.error('Erro ao deletar horário de funcionamento:', error);
+        return res.status(error.statusCode || 500).json({ error: error.message || 'Erro interno do servidor.' });
     }
 };

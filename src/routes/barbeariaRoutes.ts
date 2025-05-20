@@ -35,6 +35,10 @@ import {
     getFormasPagamentoController,
     createFormaPagamentoController,
     deleteFormaPagamentoController,
+    getHorariosFuncionamentoController,
+    createHorarioFuncionamentoController,
+    updateHorarioFuncionamentoController,
+    deleteHorarioFuncionamentoController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 
@@ -77,5 +81,9 @@ router.delete('/:barbeariaId/redes-sociais/:redeId', deletarRedeSocialController
 router.get('/:barbeariaId/formas-pagamento', getFormasPagamentoController);
 router.post('/:barbeariaId/formas-pagamento', createFormaPagamentoController);
 router.delete('/:barbeariaId/formas-pagamento/:formaPagamentoId', deleteFormaPagamentoController);
+router.get('/:barbeariaId/horarios-funcionamento', getHorariosFuncionamentoController);
+router.post('/:barbeariaId/horario-funcionamento', createHorarioFuncionamentoController);
+router.put('/:barbeariaId/horario-funcionamento/:horarioId', updateHorarioFuncionamentoController);
+router.delete('/:barbeariaId/horario-funcionamento/:horarioId', deleteHorarioFuncionamentoController);
 
 export default router;
