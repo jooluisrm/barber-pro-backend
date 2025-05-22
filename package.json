@@ -2,7 +2,8 @@
   "name": "node-api-base",
   "version": "1.0.0",
   "scripts": {
-    "dev": "tsx watch src/server.ts"
+    "dev": "tsx watch src/server.ts",
+    "vercel-build": "npx prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/client": "^6.3.1",
