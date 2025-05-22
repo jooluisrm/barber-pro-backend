@@ -1,3 +1,4 @@
+// src/server.ts
 import express, { urlencoded } from 'express';
 import 'dotenv/config';
 import cors from 'cors';
@@ -17,5 +18,10 @@ server.use(express.json());
 // Utiliza as rotas agregadas
 server.use(mainRouter);
 
-// ✅ Exporta o servidor para Vercel
-export default server;
+const port = process.env.PORT || 3000;
+server.get('/', (req, res) => {
+  res.json({ status: 'API funcionando!' });
+});
+server.listen(port, () => {
+    console.log(`🚀 Servidor rodando em http://localhost:${port}`);
+});
