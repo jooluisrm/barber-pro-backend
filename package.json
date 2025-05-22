@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "vercel-build": "npx prisma migrate deploy"
+    
   },
   "dependencies": {
     "@prisma/client": "^6.3.1",
