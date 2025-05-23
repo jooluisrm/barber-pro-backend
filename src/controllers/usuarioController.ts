@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import * as usuarioService from '../services/usuarioService';
+import { prisma } from '../libs/prisma';
 
 // Controlador para registro de novo usuário
 export const registrarUsuario = async (req: Request, res: Response) => {

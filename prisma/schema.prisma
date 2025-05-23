@@ -7,6 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model PagamentoBarbearia {
+  id            String   @id @default(uuid())
+  email         String // Email da barbearia
+  nome          String // Nome da barbearia
+  plano         String // Nome do plano
+  valorCentavos Int // Valor em centavos
+  status        String   @default("Pendente")
+  billingId     String? // ID da cobrança na AbacatePay
+  customerId    String? // ID do cliente na AbacatePay
+  criadoEm      DateTime @default(now())
+}
+
 model Barbearia {
   id         String  @id @default(uuid())
   nome       String  @unique
