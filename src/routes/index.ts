@@ -31,7 +31,7 @@ mainRouter.post('/pagamento/barbearia', async (req: Request, res: Response) => {
         senha: senha,
         endereco: endereco,
         celular: celular,
-        telefone: telefone ? telefone :  "",
+        telefone: telefone ? telefone : "",
         latitude: latitude,
         longitude: longitude,
         fotoPerfil: null,
@@ -140,18 +140,25 @@ mainRouter.post('/webhook/abacatepay', async (req, res) => {
     try {
         const { event: eventType, data } = event;
 
-        if (eventType === 'payment.status.changed') {
-            const { status, billing } = data;
+        // ✅ Corrigido: evento que realmente está vindo
+        if (eventType === 'billing.paid') {
+            const { billing } = data;
 
-            console.log("Status recebido:", status);
+            console.log("Status recebido:", billing.status);
 
-            if (status === 'COMPLETED') {
+            if (billing.status === 'PAID') {
                 const { metadata } = billing;
 
-                // Aqui assumimos que na cobrança você enviou dados da barbearia como metadata.
+                if (!metadata) {
+                    console.log("❗ Metadata não encontrada.");
+                    return res.status(400).json({ error: "Metadata não encontrada" });
+                }
+
+                console.log("Metadata recebido:", metadata);
+
                 const { nome, email, senha, endereco, celular, telefone, latitude, longitude, fotoPerfil, descricao } = metadata;
 
-                // Confere se a barbearia já existe
+                // ✅ Confere se a barbearia já existe
                 const barbeariaExistente = await prisma.barbearia.findFirst({
                     where: { email }
                 });
@@ -178,12 +185,16 @@ mainRouter.post('/webhook/abacatepay', async (req, res) => {
                 } else {
                     console.log(`⚠️ Barbearia já existe: ${email}`);
                 }
+            } else {
+                console.log(`⚠️ Status não tratado: ${billing.status}`);
             }
+        } else {
+            console.log(`⚠️ Evento não tratado: ${eventType}`);
         }
 
         res.status(200).json({ received: true });
     } catch (error) {
-        console.error("Erro no webhook:", error);
+        console.error("❌ Erro no webhook:", error);
         res.status(500).json({ error: "Erro interno no webhook." });
     }
 });
