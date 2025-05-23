@@ -45,7 +45,7 @@ mainRouter.post('/pagamento/barbearia', async (req: Request, res: Response) => {
         const customerId = await createCustomer(nome, email, celular, taxId);
 
         // ✅ Cria cobrança
-        const billing = await createBilling(customerId, plano, valorCentavos, barbeariaData);
+        const billing: any = await createBilling(customerId, plano, valorCentavos, barbeariaData);
 
         // ✅ Salva cobrança no banco
         const pagamento = await prisma.pagamentoBarbearia.create({
@@ -83,7 +83,7 @@ export const createCustomer = async (
     cellphone: string,
     taxId: string
 ) => {
-    const response = await axios.post(`${ABACATEPAY_API}/customer/create`, {
+    const response: any = await axios.post(`${ABACATEPAY_API}/customer/create`, {
         name,
         email,
         cellphone,
