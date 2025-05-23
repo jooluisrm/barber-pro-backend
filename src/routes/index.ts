@@ -45,7 +45,7 @@ mainRouter.post('/pagamento/barbearia', async (req: Request, res: Response) => {
         const customerId = await createCustomer(nome, email, celular, taxId);
 
         // ✅ Cria cobrança
-        const billing: any = await createBilling(customerId, plano, valorCentavos, barbeariaData);
+        const billing: any = await createBilling(customerId, plano, valorCentavos, barbeariaData, email);
 
         // ✅ Salva cobrança no banco
         const pagamento = await prisma.pagamentoBarbearia.create({
@@ -104,46 +104,38 @@ export const createCustomer = async (
 
 
 
-export const createBilling = async (
-    customerId: string,
-    nomePlano: string,
-    valorCentavos: number,
-    barbeariaData: any
-) => {
+export const createBilling = async (customerId: string, nomePlano: string, valorCentavos: number, barbeariaData: any, email: string) => {
     console.log("customerId =>", customerId);
 
-    const response = await axios.post(
-        `${ABACATEPAY_API}/billing/create`,
-        {
-            frequency: "ONE_TIME",
-            methods: ["PIX"],
-            products: [
-                {
-                    externalId: `plano-${nomePlano}`,
-                    name: `Plano ${nomePlano}`,
-                    description: `Assinatura do plano ${nomePlano}`,
-                    quantity: 1,
-                    price: valorCentavos
-                }
-            ],
-            returnUrl: 'https://barber-pro-barbearia.vercel.app/register',
-            completionUrl: 'https://barber-pro-barbearia.vercel.app/login',
-
-            customer: {          // ✅ AQUI O CERTO!
-                id: customerId,
-                metadata: barbeariaData
+    const response = await axios.post(`${ABACATEPAY_API}/billing/create`, {
+        frequency: "ONE_TIME",
+        methods: ["PIX"],
+        products: [
+            {
+                externalId: `plano-${nomePlano}`,
+                name: `Plano ${nomePlano}`,
+                description: `Assinatura do plano ${nomePlano}`,
+                quantity: 1,
+                price: valorCentavos
             }
-        },
-        {
-            headers: {
-                Authorization: `Bearer ${ABACATEPAY_TOKEN}`,
-                'Content-Type': 'application/json'
-            }
+        ],
+        returnUrl: 'https://barber-pro-barbearia.vercel.app/register',
+        completionUrl: 'https://barber-pro-barbearia.vercel.app/login',
+        customer: {
+            id: customerId,
+            email: email,  // ✅ Adicionado aqui!
+            metadata: barbeariaData
         }
-    );
+    }, {
+        headers: {
+            Authorization: `Bearer ${ABACATEPAY_TOKEN}`,
+            'Content-Type': 'application/json'
+        }
+    });
 
-    return response.data;
+    return response.data; // pode incluir link, QR code, etc.
 };
+
 
 mainRouter.post('/webhook/abacatepay', async (req, res) => {
     const event = req.body;
