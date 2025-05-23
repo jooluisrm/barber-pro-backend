@@ -118,8 +118,8 @@ export const createBilling = async (customerId: string, nomePlano: string, valor
                 price: valorCentavos
             }
         ],
-        returnUrl: 'http://localhost:3000/register',
-        completionUrl: 'http://localhost:3000/login',
+        returnUrl: 'https://barber-pro-barbearia.vercel.app/register',
+        completionUrl: 'https://barber-pro-barbearia.vercel.app/login',
         customerId,
         metadata: barbeariaData
     }, {
