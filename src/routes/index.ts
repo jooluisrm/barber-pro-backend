@@ -16,33 +16,33 @@ mainRouter.use('/agendamentos', agendamentoRoutes);
 
 
 mainRouter.post('/pagamento/barbearia', async (req: Request, res: Response) => {
-    const { nome, email, telefone, taxId, plano, valorCentavos } = req.body;
+    const { nome, email, telefone, taxId, plano, valorCentavos, senha, endereco, celular, latitude, longitude } = req.body;
 
     // ✅ Validação básica
-    if (!nome || !email || !telefone || !taxId || !plano || !valorCentavos) {
+    if (!nome || !email || !taxId || !plano || !valorCentavos || !senha || !endereco || !celular || !latitude || !longitude) {
         return res.status(400).json({
-            error: 'Todos os campos obrigatórios devem ser preenchidos: nome, email, telefone, taxId, plano, valorCentavos.'
+            error: 'Todos os campos obrigatórios devem ser preenchidos'
         });
     }
 
     const barbeariaData = {
-        nome: "Barbearia do João",
-        email: "joao@barbearia.com",
-        senha: "123456",
-        endereco: "Rua Exemplo, 123",
-        celular: "+5511999999999",
-        telefone: "+551133333333",
-        latitude: "-23.550520",
-        longitude: "-46.633308",
-        fotoPerfil: "https://imgurl.com/barbearia.png",
-        descricao: "Barbearia top"
+        nome: nome,
+        email: email,
+        senha: senha,
+        endereco: endereco,
+        celular: celular,
+        telefone: telefone ? telefone :  "",
+        latitude: latitude,
+        longitude: longitude,
+        fotoPerfil: null,
+        descricao: null
     };
 
     console.log({ nome, email, telefone, taxId });
 
     try {
         // ✅ Verifica se já existe cliente AbacatePay ou cria
-        const customerId = await createCustomer(nome, email, telefone, taxId);
+        const customerId = await createCustomer(nome, email, celular, taxId);
 
         // ✅ Cria cobrança
         const billing = await createBilling(customerId, plano, valorCentavos, barbeariaData);
@@ -118,8 +118,8 @@ export const createBilling = async (customerId: string, nomePlano: string, valor
                 price: valorCentavos
             }
         ],
-        returnUrl: 'https://barberpro.com.br/retorno',
-        completionUrl: 'https://barberpro.com.br/concluido',
+        returnUrl: 'http://localhost:3000/register',
+        completionUrl: 'http://localhost:3000/login',
         customerId,
         metadata: barbeariaData
     }, {
