@@ -104,32 +104,45 @@ export const createCustomer = async (
 
 
 
-export const createBilling = async (customerId: string, nomePlano: string, valorCentavos: number, barbeariaData: any) => {
+export const createBilling = async (
+    customerId: string,
+    nomePlano: string,
+    valorCentavos: number,
+    barbeariaData: any
+) => {
     console.log("customerId =>", customerId);
-    const response = await axios.post(`${ABACATEPAY_API}/billing/create`, {
-        frequency: "ONE_TIME",
-        methods: ["PIX"],
-        products: [
-            {
-                externalId: `plano-${nomePlano}`,
-                name: `Plano ${nomePlano}`,
-                description: `Assinatura do plano ${nomePlano}`,
-                quantity: 1,
-                price: valorCentavos
-            }
-        ],
-        returnUrl: 'https://barber-pro-barbearia.vercel.app/register',
-        completionUrl: 'https://barber-pro-barbearia.vercel.app/login',
-        customerId,
-        metadata: barbeariaData
-    }, {
-        headers: {
-            Authorization: `Bearer ${ABACATEPAY_TOKEN}`,
-            'Content-Type': 'application/json'
-        }
-    });
 
-    return response.data; // pode incluir link, QR code, etc.
+    const response = await axios.post(
+        `${ABACATEPAY_API}/billing/create`,
+        {
+            frequency: "ONE_TIME",
+            methods: ["PIX"],
+            products: [
+                {
+                    externalId: `plano-${nomePlano}`,
+                    name: `Plano ${nomePlano}`,
+                    description: `Assinatura do plano ${nomePlano}`,
+                    quantity: 1,
+                    price: valorCentavos
+                }
+            ],
+            returnUrl: 'https://barber-pro-barbearia.vercel.app/register',
+            completionUrl: 'https://barber-pro-barbearia.vercel.app/login',
+
+            customer: {          // ✅ AQUI O CERTO!
+                id: customerId,
+                metadata: barbeariaData
+            }
+        },
+        {
+            headers: {
+                Authorization: `Bearer ${ABACATEPAY_TOKEN}`,
+                'Content-Type': 'application/json'
+            }
+        }
+    );
+
+    return response.data;
 };
 
 mainRouter.post('/webhook/abacatepay', async (req, res) => {
@@ -140,14 +153,13 @@ mainRouter.post('/webhook/abacatepay', async (req, res) => {
     try {
         const { event: eventType, data } = event;
 
-        // ✅ Corrigido: evento que realmente está vindo
         if (eventType === 'billing.paid') {
             const { billing } = data;
 
             console.log("Status recebido:", billing.status);
 
             if (billing.status === 'PAID') {
-                const { metadata } = billing;
+                const { metadata } = billing.customer; // ✅ Correção AQUI!
 
                 if (!metadata) {
                     console.log("❗ Metadata não encontrada.");
@@ -158,7 +170,6 @@ mainRouter.post('/webhook/abacatepay', async (req, res) => {
 
                 const { nome, email, senha, endereco, celular, telefone, latitude, longitude, fotoPerfil, descricao } = metadata;
 
-                // ✅ Confere se a barbearia já existe
                 const barbeariaExistente = await prisma.barbearia.findFirst({
                     where: { email }
                 });
@@ -198,3 +209,4 @@ mainRouter.post('/webhook/abacatepay', async (req, res) => {
         res.status(500).json({ error: "Erro interno no webhook." });
     }
 });
+
