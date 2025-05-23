@@ -133,16 +133,15 @@ export const createBilling = async (
         completionUrl: 'https://barber-pro-barbearia.vercel.app/login',
         customer: {
             id: customerId,
+            name,
+            cellphone: celular,
+            email,
+            taxId,
             metadata: {
-                name,
-                cellphone: celular,
-                email,
-                taxId,
                 senha
-
             }
         },
-        
+
     }, {
         headers: {
             Authorization: `Bearer ${ABACATEPAY_TOKEN}`,
