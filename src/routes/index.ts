@@ -45,7 +45,7 @@ mainRouter.post('/pagamento/barbearia', async (req: Request, res: Response) => {
         const customerId = await createCustomer(nome, email, celular, taxId);
 
         // ✅ Cria cobrança
-        const billing: any = await createBilling(customerId, plano, valorCentavos, barbeariaData, email);
+        const billing: any = await createBilling(customerId, plano, valorCentavos, barbeariaData, email, nome, celular, taxId);
 
         // ✅ Salva cobrança no banco
         const pagamento = await prisma.pagamentoBarbearia.create({
@@ -104,7 +104,7 @@ export const createCustomer = async (
 
 
 
-export const createBilling = async (customerId: string, nomePlano: string, valorCentavos: number, barbeariaData: any, email: string) => {
+export const createBilling = async (customerId: string, nomePlano: string, valorCentavos: number, barbeariaData: any, email: string, name: string, celular: string, taxId: string) => {
     console.log("customerId =>", customerId);
 
     const response = await axios.post(`${ABACATEPAY_API}/billing/create`, {
@@ -123,7 +123,10 @@ export const createBilling = async (customerId: string, nomePlano: string, valor
         completionUrl: 'https://barber-pro-barbearia.vercel.app/login',
         customer: {
             id: customerId,
-            email: email,  // ✅ Adicionado aqui!
+            email: email,
+            name: name,
+            cellphone: celular,
+            taxId: taxId, // ✅ Adicionado aqui!
             metadata: barbeariaData
         }
     }, {
