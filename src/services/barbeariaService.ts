@@ -273,7 +273,7 @@ export const registrarNovaBarbearia = async (data: RegistrarBarbeariaDTO) => {
     return novaBarbearia;
 };
 
-const SECRET_KEY = process.env.JWT_SECRET || 'seuSegredoSuperSeguro';
+const SECRET_KEY = process.env.JWT_SECRET_KEY || 'minhaSuperChaveSecreta';
 
 export const loginBarbeariaService = async (email: string, senha: string) => {
     // Validação
@@ -312,7 +312,8 @@ export const loginBarbeariaService = async (email: string, senha: string) => {
             telefone: barbearia.telefone,
             fotoPerfil: barbearia.fotoPerfil,
             descricao: barbearia.descricao,
-            status: barbearia.status
+            status: barbearia.status,
+            stripeCurrentPeriodEnd: barbearia.stripeCurrentPeriodEnd
         },
         token
     };

@@ -42,6 +42,8 @@ import {
     createAgendamentoVisitanteController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
+import { checkSubscription } from '../middlewares/checkSubscription';
+import { authMiddlewareBarber } from '../middlewares/authMiddlewareBarber';
 
 const router = express.Router();
 
@@ -61,31 +63,38 @@ router.get('/:barbeariaId/redes-sociais', obterRedesSociais);
 
 router.post('/registrar', registrarBarbearia);
 router.post('/login', loginBarbeariaController);
+
 router.get('/agendamentos/:barbeariaId', getAgendamentosController);
-router.put('/agendamento/status/:agendamentoId', updateStatusAgendamentoController);
-router.post('/barbeiro/register', registerBarbeiroController);
-router.delete('/barbeiro/:barbeiroId', deleteBarbeiroController);
-router.put('/barbeiro/:barbeiroId', updateBarbeiroController);
-router.get('/barbeiro/:barbeiroId/horarios/:diaSemana', getHorariosPorDiaController);
-router.get('/:barbeariaId/servicos', listarServicosController);
-router.post('/:barbeariaId/servicos', criarServicoController);
-router.put('/:barbeariaId/servicos/:servicoId', editarServicoController);
-router.delete('/:barbeariaId/servicos/:servicoId', deletarServicoController);
-router.get('/:barbeariaId/produtos', listarProdutosController);
-router.post('/:barbeariaId/produtos', criarProdutoController);
-router.put('/:barbeariaId/produtos/:produtoId', editarProdutoController);
-router.delete('/:barbeariaId/produtos/:produtoId', deletarProdutoController);
-router.get('/:barbeariaId/redes-sociais', listarRedesSociaisController);
-router.post('/:barbeariaId/redes-sociais', criarRedeSocialController);
-router.put('/:barbeariaId/redes-sociais/:redeId', editarRedeSocialController);
-router.delete('/:barbeariaId/redes-sociais/:redeId', deletarRedeSocialController);
-router.get('/:barbeariaId/formas-pagamento', getFormasPagamentoController);
-router.post('/:barbeariaId/formas-pagamento', createFormaPagamentoController);
-router.delete('/:barbeariaId/formas-pagamento/:formaPagamentoId', deleteFormaPagamentoController);
-router.get('/:barbeariaId/horarios-funcionamento', getHorariosFuncionamentoController);
-router.post('/:barbeariaId/horario-funcionamento', createHorarioFuncionamentoController);
-router.put('/:barbeariaId/horario-funcionamento/:horarioId', updateHorarioFuncionamentoController);
-router.delete('/:barbeariaId/horario-funcionamento/:horarioId', deleteHorarioFuncionamentoController);
+router.put('/agendamento/status/:agendamentoId', authMiddlewareBarber, checkSubscription, updateStatusAgendamentoController);
 router.post('/agendamentos/visitante', createAgendamentoVisitanteController);
+
+router.post('/barbeiro/register', authMiddlewareBarber, checkSubscription, registerBarbeiroController);
+router.delete('/barbeiro/:barbeiroId', authMiddlewareBarber, checkSubscription, deleteBarbeiroController);
+router.put('/barbeiro/:barbeiroId', authMiddlewareBarber, checkSubscription, updateBarbeiroController);
+router.get('/barbeiro/:barbeiroId/horarios/:diaSemana', getHorariosPorDiaController);
+
+router.get('/:barbeariaId/servicos', listarServicosController);
+router.post('/:barbeariaId/servicos', authMiddlewareBarber, checkSubscription, criarServicoController);
+router.put('/:barbeariaId/servicos/:servicoId', authMiddlewareBarber, checkSubscription, editarServicoController);
+router.delete('/:barbeariaId/servicos/:servicoId', authMiddlewareBarber, checkSubscription, deletarServicoController);
+
+router.get('/:barbeariaId/produtos', listarProdutosController);
+router.post('/:barbeariaId/produtos', authMiddlewareBarber, checkSubscription, criarProdutoController);
+router.put('/:barbeariaId/produtos/:produtoId', authMiddlewareBarber, checkSubscription, editarProdutoController);
+router.delete('/:barbeariaId/produtos/:produtoId', authMiddlewareBarber, checkSubscription, deletarProdutoController);
+
+router.get('/:barbeariaId/redes-sociais', listarRedesSociaisController);
+router.post('/:barbeariaId/redes-sociais', authMiddlewareBarber, checkSubscription, criarRedeSocialController);
+router.put('/:barbeariaId/redes-sociais/:redeId', authMiddlewareBarber, checkSubscription, editarRedeSocialController);
+router.delete('/:barbeariaId/redes-sociais/:redeId', authMiddlewareBarber, checkSubscription, deletarRedeSocialController);
+
+router.get('/:barbeariaId/formas-pagamento', getFormasPagamentoController);
+router.post('/:barbeariaId/formas-pagamento', authMiddlewareBarber, checkSubscription, createFormaPagamentoController);
+router.delete('/:barbeariaId/formas-pagamento/:formaPagamentoId', authMiddlewareBarber, checkSubscription, deleteFormaPagamentoController);
+
+router.get('/:barbeariaId/horarios-funcionamento', getHorariosFuncionamentoController);
+router.post('/:barbeariaId/horario-funcionamento', authMiddlewareBarber, checkSubscription, createHorarioFuncionamentoController);
+router.put('/:barbeariaId/horario-funcionamento/:horarioId', authMiddlewareBarber, checkSubscription, updateHorarioFuncionamentoController);
+router.delete('/:barbeariaId/horario-funcionamento/:horarioId', authMiddlewareBarber, checkSubscription, deleteHorarioFuncionamentoController);
 
 export default router;

@@ -7,25 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model PagamentoBarbearia {
-  id            String   @id @default(uuid())
-  email         String // Email da barbearia
-  nome          String // Nome da barbearia
-  plano         String // Nome do plano
-  valorCentavos Int // Valor em centavos
-  status        String   @default("Pendente")
-  billingId     String? // ID da cobrança na AbacatePay
-  customerId    String? // ID do cliente na AbacatePay
-  criadoEm      DateTime @default(now())
-}
-
 model Barbearia {
   id         String  @id @default(uuid())
-  nome       String  @unique
+  nome       String  @unique // nome da barbearia
   email      String  @unique
   senha      String
-  endereco   String
-  celular    String
+  endereco   String?
+  celular    String?
   telefone   String?
   fotoPerfil String?
   descricao  String?
@@ -33,14 +21,32 @@ model Barbearia {
   longitude  Float
   status     String  @default("Ativa")
 
-  barbeiros             Barbeiro[] // Relacionamento com os barbeiros
-  servicos              Servico[] // Relacionamento com os serviços
-  produtos              Produto[] // Relacionamento com os produtos
-  agendamentos          Agendamento[]
-  avaliacoes            Avaliacao[]
+  // --- CAMPOS PARA ASSINATURA STRIPE ---
+
+  // Armazena o ID do cliente no Stripe. Essencial para ligar a barbearia a um cliente no Stripe.
+  // É opcional (?) porque a barbearia pode se cadastrar antes de assinar.
+  // É único (@unique) porque um cliente Stripe não deve pertencer a mais de uma barbearia.
+  stripeCustomerId String? @unique
+
+  // Armazena o ID da assinatura específica. Útil para cancelamentos ou upgrades.
+  stripeSubscriptionId String? @unique
+
+  // Armazena o ID do plano (price_...) que o cliente assinou.
+  stripePriceId String?
+
+  // Armazena a data em que o período pago atualmente termina.
+  // Este é o campo MAIS IMPORTANTE para verificar se a assinatura está ativa no seu sistema.
+  // A lógica será: "se a data em stripeCurrentPeriodEnd for maior que a data de hoje, o acesso está liberado".
+  stripeCurrentPeriodEnd DateTime?
+
+  barbeiros Barbeiro[] // Relacionamento com os barbeiros
+  servicos Servico[] // Relacionamento com os serviços
+  produtos Produto[] // Relacionamento com os produtos
+  agendamentos Agendamento[]
+  avaliacoes Avaliacao[]
   horariosFuncionamento HorariosFuncionamentoBarbearia[] // Relacionamento com os horários de funcionamento
-  FormaPagamento        FormaPagamento[]
-  RedeSocial            RedeSocial[]
+  FormaPagamento FormaPagamento[]
+  RedeSocial RedeSocial[]
 }
 
 model HorariosFuncionamentoBarbearia {
