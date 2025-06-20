@@ -151,7 +151,7 @@ model Avaliacao {
   barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
 }
 
-model Usuario {
+model Usuario { // clientes 
   id         String  @id @default(uuid())
   nome       String
   email      String  @unique
