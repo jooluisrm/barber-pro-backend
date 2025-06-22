@@ -150,6 +150,31 @@ server.post('/api/create-portal-session', authMiddlewareBarber, async (req, res)
     }
 });
 
+// DENTRO DE src/server.ts, junto com suas outras rotas
+
+// ✅ Nova rota para buscar os dados do usuário logado
+server.get('/api/auth/me', authMiddlewareBarber, async (req, res) => {
+    try {
+        const barbeariaId = req.userId; // ID pego pelo authMiddlewareBarber
+
+        const barbearia = await prisma.barbearia.findUnique({
+            where: { id: barbeariaId },
+        });
+
+        if (!barbearia) {
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+        
+        // Retorna o objeto completo e atualizado da barbearia
+        // (sem a senha, por segurança)
+        const { senha, ...dadosBarbearia } = barbearia;
+        return res.json(dadosBarbearia);
+
+    } catch (error) {
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
+    }
+});
+
 server.get('/api/auth/status', async (req, res) => {
     const barbeariaId = req.query.id as string;
     if (!barbeariaId) {
