@@ -67,7 +67,7 @@ server.post('/stripe-webhook', express.raw({ type: 'application/json' }), async 
                             stripeSubscriptionId: subscription.id,
                             stripePriceId: subscription.items.data[0].price.id,
                             // ✅ A CORREÇÃO FINAL: Usando a data da fatura, que é 100% confiável.
-                            stripeCurrentPeriodEnd: new Date(invoice.period_end * 1000),
+                            stripeCurrentPeriodEnd: new Date(invoice.period_end * 2000), //alterar para 1000
                         },
                     });
 
