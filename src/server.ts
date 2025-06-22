@@ -58,7 +58,19 @@ server.post('/stripe-webhook', express.raw({ type: 'application/json' }), async 
                         throw new Error("A data final do período na fatura não é um número válido.");
                     }
 
-                    // Passo 3: Atualizar o banco de dados com os dados de todas as fontes.
+                    // --- LÓGICA TEMPORÁRIA PARA AMBIENTE DE TESTE --- removela qnd mudar para produção
+
+                    // 1. Pega a data de expiração original que o Stripe enviou (que vence em minutos).
+                    const originalExpiration = new Date(invoice.period_end * 1000);
+
+                    // 2. Cria uma nova data e adiciona 1 mês a ela.
+                    const testExpiration = new Date(originalExpiration);
+                    testExpiration.setMonth(testExpiration.getMonth() + 1);
+
+                    // Logs para você ver a mágica acontecendo no seu terminal
+                    console.log(`[MODO TESTE] Data original do Stripe: ${originalExpiration.toLocaleString('pt-BR')}`);
+                    console.log(`[MODO TESTE] Nova data com +1 mês: ${testExpiration.toLocaleString('pt-BR')}`);
+                    // fim do codigo teste 
                     await prisma.barbearia.update({
                         where: {
                             stripeCustomerId: customerId,
@@ -66,8 +78,10 @@ server.post('/stripe-webhook', express.raw({ type: 'application/json' }), async 
                         data: {
                             stripeSubscriptionId: subscription.id,
                             stripePriceId: subscription.items.data[0].price.id,
-                            // ✅ A CORREÇÃO FINAL: Usando a data da fatura, que é 100% confiável.
-                            stripeCurrentPeriodEnd: new Date(invoice.period_end * 2000), //alterar para 1000
+                            // ✅ Usa a nova data de expiração modificada para o teste
+                            stripeCurrentPeriodEnd: testExpiration,
+                            // ✅ Versão para produção:
+                            //stripeCurrentPeriodEnd: new Date(invoice.period_end * 1000),
                         },
                     });
 
@@ -124,7 +138,7 @@ server.post('/api/create-portal-session', authMiddlewareBarber, async (req, res)
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: barbearia.stripeCustomerId,
             // A URL para onde o usuário será redirecionado após sair do portal
-            return_url: `${process.env.FRONTEND_URL}/agendamentos`, 
+            return_url: `${process.env.FRONTEND_URL}/agendamentos`,
         });
 
         // Retorna a URL do portal para o frontend
@@ -160,7 +174,7 @@ server.get('/api/auth/status', async (req, res) => {
         // Convertendo para milissegundos (a forma mais segura de comparar)
         const expirationTime = expirationDate.getTime();
         const currentTime = currentDate.getTime();
-        
+
         console.log("\n--- VERIFICANDO DATAS NA API DE STATUS ---");
         console.log("Data de Expiração (do Banco):", barbearia.stripeCurrentPeriodEnd);
         console.log("Data de Expiração (convertida):", expirationDate.toString());
@@ -175,7 +189,7 @@ server.get('/api/auth/status', async (req, res) => {
         const isActive = expirationTime > currentTime;
 
         console.log(`[STATUS API] Resultado para ${barbeariaId}: { isActive: ${isActive} }`);
-        
+
         return res.json({ isActive });
 
     } catch (error) {
