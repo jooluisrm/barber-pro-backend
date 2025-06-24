@@ -112,8 +112,16 @@ export const BuscarServicosPorBarbearia = async (barbeariaId: string) => {
 export const BuscarBarbeirosPorBarbearia = async (barbeariaId: string) => {
     return await prisma.barbeiro.findMany({
         where: {
-            barbeariaId, // Filtra os barbeiros pela barbearia
+            barbeariaId, // O filtro continua o mesmo, está perfeito.
         },
+        // A MÁGICA ACONTECE AQUI:
+        include: {
+            usuarioSistema: { // 1. Incluímos a relação com UsuarioSistema
+                select: {      // 2. Selecionamos APENAS os campos que queremos
+                    email: true, //   para evitar enviar dados sensíveis como a senha.
+                }
+            }
+        }
     });
 };
 
@@ -207,119 +215,6 @@ export const ObterRedesSociais = async (barbeariaId: string) => {
     });
 };
 
-
-interface RegistrarBarbeariaDTO {
-    nome: string;
-    email: string;
-    senha: string;
-    endereco: string;
-    celular: string;
-    telefone?: string;
-    latitude: string;
-    longitude: string;
-    fotoPerfil?: string;
-    descricao?: string;
-}
-
-export const registrarNovaBarbearia = async (data: RegistrarBarbeariaDTO) => {
-    const {
-        nome,
-        email,
-        senha,
-        endereco,
-        celular,
-        telefone,
-        latitude,
-        longitude,
-        fotoPerfil,
-        descricao
-    } = data;
-
-    // Validação
-    if (!nome || !email || !senha || !endereco || !celular || !latitude || !longitude) {
-        throw new Error('Todos os campos obrigatórios devem ser preenchidos.');
-    }
-
-    // Verificar se já existe barbearia com mesmo nome ou email
-    const existente = await prisma.barbearia.findFirst({
-        where: {
-            OR: [{ email }, { nome }]
-        }
-    });
-
-    if (existente) {
-        throw new Error('Nome ou e-mail já cadastrados.');
-    }
-
-    // Criptografar a senha
-    const senhaHash = await bcrypt.hash(senha, 10);
-
-    // Criar a barbearia
-    const novaBarbearia = await prisma.barbearia.create({
-        data: {
-            nome,
-            email,
-            senha: senhaHash,
-            endereco,
-            celular,
-            telefone: !telefone ? '' : telefone,
-            latitude: parseFloat(latitude),
-            longitude: parseFloat(longitude),
-            fotoPerfil,
-            descricao,
-        }
-    });
-
-    return novaBarbearia;
-};
-
-const SECRET_KEY = process.env.JWT_SECRET_KEY || 'minhaSuperChaveSecreta';
-
-export const loginBarbeariaService = async (email: string, senha: string) => {
-    // Validação
-    if (!email || !senha) {
-        throw { status: 400, message: 'E-mail e senha são obrigatórios.' };
-    }
-
-    // Verifica se a barbearia existe
-    const barbearia = await prisma.barbearia.findUnique({ where: { email } });
-
-    if (!barbearia) {
-        throw { status: 401, message: 'E-mail ou senha inválidos.' };
-    }
-
-    // Compara senha
-    const senhaValida = await bcrypt.compare(senha, barbearia.senha);
-    if (!senhaValida) {
-        throw { status: 401, message: 'E-mail ou senha inválidos.' };
-    }
-
-    // Gera token
-    const token = jwt.sign(
-        { id: barbearia.id, email: barbearia.email },
-        SECRET_KEY,
-        { expiresIn: '2h' }
-    );
-
-    return {
-        message: 'Login realizado com sucesso!',
-        barbearia: {
-            id: barbearia.id,
-            nome: barbearia.nome,
-            email: barbearia.email,
-            endereco: barbearia.endereco,
-            celular: barbearia.celular,
-            telefone: barbearia.telefone,
-            fotoPerfil: barbearia.fotoPerfil,
-            descricao: barbearia.descricao,
-            status: barbearia.status,
-            stripeCurrentPeriodEnd: barbearia.stripeCurrentPeriodEnd
-        },
-        token
-    };
-};
-
-
 export const getAgendamentosService = async (barbeariaId: string) => {
     const agendamentos = await prisma.agendamento.findMany({
         where: { barbeariaId },
@@ -349,6 +244,34 @@ export const getAgendamentosService = async (barbeariaId: string) => {
     return agendamentos;
 };
 
+export const getAgendamentosPorBarbeiroService = async (barbeiroId: string) => {
+    if (!barbeiroId) {
+        throw new Error('ID do barbeiro é obrigatório.');
+    }
+
+    const agendamentos = await prisma.agendamento.findMany({
+        where: { 
+            barbeiroId: barbeiroId 
+        },
+        include: {
+            usuario: {
+                select: { id: true, nome: true }
+            },
+            barbeiro: {
+                select: { id: true, nome: true }
+            },
+            servico: {
+                select: { id: true, nome: true, preco: true }
+            },
+        },
+        orderBy: {
+            data: 'asc' // Ordena por data
+        }
+    });
+
+    return agendamentos;
+};
+
 export const updateStatusAgendamentoService = async (agendamentoId: string, status: string) => {
     const updatedAgendamento = await prisma.agendamento.update({
         where: { id: agendamentoId },
@@ -356,60 +279,6 @@ export const updateStatusAgendamentoService = async (agendamentoId: string, stat
     });
 
     return updatedAgendamento;
-};
-
-interface BarbeiroInput {
-    nome: string;
-    email: string;
-    senha: string;
-    telefone: string;
-    fotoPerfil?: string;
-    barbeariaId: string;
-}
-
-export const registerBarbeiroService = async ({
-    nome,
-    email,
-    senha,
-    telefone,
-    fotoPerfil,
-    barbeariaId,
-}: BarbeiroInput) => {
-
-    // Verifica se e-mail já existe
-    const barbeiroExistente = await prisma.barbeiro.findUnique({
-        where: { email },
-    });
-
-    if (barbeiroExistente) {
-        throw { status: 400, message: 'E-mail já cadastrado.' };
-    }
-
-    // Verifica se barbearia existe
-    const barbeariaExistente = await prisma.barbearia.findUnique({
-        where: { id: barbeariaId },
-    });
-
-    if (!barbeariaExistente) {
-        throw { status: 404, message: 'Barbearia não encontrada.' };
-    }
-
-    // Criptografa senha
-    const senhaHash = await bcrypt.hash(senha, 10);
-
-    // Cria barbeiro
-    const novoBarbeiro = await prisma.barbeiro.create({
-        data: {
-            nome,
-            email,
-            senha: senhaHash,
-            telefone,
-            fotoPerfil,
-            barbeariaId,
-        },
-    });
-
-    return novoBarbeiro;
 };
 
 export const deleteBarbeiroService = async (barbeiroId: string) => {
@@ -448,57 +317,6 @@ export const deleteBarbeiroService = async (barbeiroId: string) => {
     });
 
     return "Barbeiro deletado com sucesso!";
-};
-
-interface UpdateBarbeiroDTO {
-    nome: string;
-    telefone: string;
-    email: string;
-}
-
-export const updateBarbeiroService = async (barbeiroId: string, { nome, telefone, email }: UpdateBarbeiroDTO) => {
-    // Validação de campos
-    if (!nome || !telefone || !email) {
-        throw { status: 400, message: "Todos os campos (nome, telefone, email) devem ser preenchidos." };
-    }
-
-    // Verifica se o barbeiro existe
-    const barbeiroExistente = await prisma.barbeiro.findUnique({
-        where: { id: barbeiroId },
-    });
-
-    if (!barbeiroExistente) {
-        throw { status: 404, message: "Barbeiro não encontrado." };
-    }
-
-    // Verifica se os dados são iguais
-    if (
-        nome === barbeiroExistente.nome &&
-        telefone === barbeiroExistente.telefone &&
-        email === barbeiroExistente.email
-    ) {
-        throw { status: 400, message: "Altere pelo menos um campo para continuar." };
-    }
-
-    // Verifica se o novo e-mail está em uso por outro barbeiro
-    const emailEmUso = await prisma.barbeiro.findFirst({
-        where: {
-            email,
-            id: { not: barbeiroId },
-        },
-    });
-
-    if (emailEmUso) {
-        throw { status: 400, message: "Este e-mail já está em uso por outro barbeiro." };
-    }
-
-    // Atualiza os dados
-    const barbeiroAtualizado = await prisma.barbeiro.update({
-        where: { id: barbeiroId },
-        data: { nome, telefone, email },
-    });
-
-    return barbeiroAtualizado;
 };
 
 export const getHorariosPorDiaService = async (barbeiroId: string, diaSemana: string) => {

@@ -1,3 +1,5 @@
+// schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,120 +9,133 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// <-- NOVO: Definimos as funções possíveis no sistema.
+enum Role {
+  ADMIN
+  BARBEIRO
+}
+
+// <-- NOVO: Modelo central para todos os utilizadores que podem fazer login no sistema de gestão.
+model UsuarioSistema {
+  id          String    @id @default(uuid())
+  nome        String
+  email       String    @unique
+  senha       String
+  fotoPerfil  String?
+  role        Role      // A função do utilizador: ADMIN ou BARBEIRO.
+  barbeariaId String
+
+  barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  
+  // Relacionamento opcional com o perfil de Barbeiro.
+  // Um admin não terá este perfil, mas um utilizador com role BARBEIRO terá.
+  barbeiroProfile Barbeiro?
+}
+
 model Barbearia {
-  id         String  @id @default(uuid())
-  nome       String  @unique // nome da barbearia
-  email      String  @unique
-  senha      String
-  endereco   String?
-  celular    String?
-  telefone   String?
-  fotoPerfil String?
-  descricao  String?
-  latitude   Float
-  longitude  Float
-  status     String  @default("Ativa")
+  id        String    @id @default(uuid())
+  nome      String    @unique
+  // <-- ALTERADO: Email e Senha foram movidos para o modelo UsuarioSistema.
+  endereco  String?
+  celular   String?
+  telefone  String?
+  fotoPerfil String? // Opcional: pode manter aqui ou usar o do UsuarioSistema
+  descricao String?
+  latitude  Float
+  longitude Float
+  status    String    @default("Ativa")
 
   // --- CAMPOS PARA ASSINATURA STRIPE ---
-
-  // Armazena o ID do cliente no Stripe. Essencial para ligar a barbearia a um cliente no Stripe.
-  // É opcional (?) porque a barbearia pode se cadastrar antes de assinar.
-  // É único (@unique) porque um cliente Stripe não deve pertencer a mais de uma barbearia.
-  stripeCustomerId String? @unique
-
-  // Armazena o ID da assinatura específica. Útil para cancelamentos ou upgrades.
-  stripeSubscriptionId String? @unique
-
-  // Armazena o ID do plano (price_...) que o cliente assinou.
-  stripePriceId String?
-
-  // Armazena a data em que o período pago atualmente termina.
-  // Este é o campo MAIS IMPORTANTE para verificar se a assinatura está ativa no seu sistema.
-  // A lógica será: "se a data em stripeCurrentPeriodEnd for maior que a data de hoje, o acesso está liberado".
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?   @unique
+  stripePriceId          String?
   stripeCurrentPeriodEnd DateTime?
 
-  barbeiros Barbeiro[] // Relacionamento com os barbeiros
-  servicos Servico[] // Relacionamento com os serviços
-  produtos Produto[] // Relacionamento com os produtos
-  agendamentos Agendamento[]
-  avaliacoes Avaliacao[]
-  horariosFuncionamento HorariosFuncionamentoBarbearia[] // Relacionamento com os horários de funcionamento
-  FormaPagamento FormaPagamento[]
-  RedeSocial RedeSocial[]
-}
+  // <-- ALTERADO: A barbearia agora se relaciona com os seus utilizadores do sistema.
+  usuariosSistema      UsuarioSistema[]
 
-model HorariosFuncionamentoBarbearia {
-  id          String @id @default(uuid())
-  barbeariaId String
-  diaSemana   Int // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
-  horaInicio  String // Ex: "10:00"
-  horaFim     String // Ex: "17:00"
-
-  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-}
-
-model FormaPagamento {
-  id          String @id @default(uuid()) // ID único da forma de pagamento
-  barbeariaId String // Relacionamento com a barbearia
-  tipo        String // Tipo de pagamento (ex: "Dinheiro", "Cartão", "PIX", etc.)
-
-  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade) // Relacionamento com a barbearia
-}
-
-model RedeSocial {
-  id          String @id @default(uuid()) // ID único para a rede social
-  barbeariaId String // Relacionamento com a barbearia
-  link        String // Link da rede social (ex: URL do perfil)
-  rede        String // Nome da rede social (ex: "Facebook", "Instagram", "Twitter", etc.)
-
-  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade) // Relacionamento com a barbearia
+  barbeiros             Barbeiro[]
+  servicos              Servico[]
+  produtos              Produto[]
+  agendamentos          Agendamento[]
+  avaliacoes            Avaliacao[]
+  horariosFuncionamento HorariosFuncionamentoBarbearia[]
+  FormaPagamento        FormaPagamento[]
+  RedeSocial            RedeSocial[]
 }
 
 model Barbeiro {
   id          String  @id @default(uuid())
   barbeariaId String
   nome        String
-  email       String  @unique
-  senha       String
+  // <-- ALTERADO: Email e Senha foram movidos para o modelo UsuarioSistema.
   telefone    String
   fotoPerfil  String?
 
-  barbearia    Barbearia         @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  // <-- NOVO: Adicionamos um relacionamento 1-para-1 com a conta de login do barbeiro.
+  usuarioSistemaId String         @unique
+  usuarioSistema   UsuarioSistema @relation(fields: [usuarioSistemaId], references: [id], onDelete: Cascade)
+
+  barbearia    Barbearia       @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   horarios     HorarioTrabalho[]
   agendamentos Agendamento[]
 }
 
-model HorarioTrabalho {
-  id         String @id @default(uuid())
-  barbeiroId String
-  diaSemana  Int // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
-  hora       String // Exemplo: "09:00", "09:30", "10:00", etc.
+// NENHUMA ALTERAÇÃO NECESSÁRIA NOS MODELOS ABAIXO PARA ESTA FUNCIONALIDADE
+// Eles permanecem exatamente como estão.
 
-  barbeiro Barbeiro @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+model HorariosFuncionamentoBarbearia {
+  id          String   @id @default(uuid())
+  barbeariaId String
+  diaSemana   Int
+  horaInicio  String
+  horaFim     String
+  barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+}
+
+model FormaPagamento {
+  id          String   @id @default(uuid())
+  barbeariaId String
+  tipo        String
+  barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+}
+
+model RedeSocial {
+  id          String   @id @default(uuid())
+  barbeariaId String
+  link        String
+  rede        String
+  barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+}
+
+model HorarioTrabalho {
+  id         String   @id @default(uuid())
+  barbeiroId String
+  diaSemana  Int
+  hora       String
+  barbeiro   Barbeiro @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
 }
 
 model Servico {
-  id          String   @id @default(uuid())
+  id          String      @id @default(uuid())
   barbeariaId String
   nome        String
-  duracao     Int // Duração em minutos
+  duracao     Int
   preco       Decimal?
-
-  barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbearia   Barbearia   @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   agendamentos Agendamento[]
 }
 
 model Produto {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   barbeariaId String
   nome        String
   descricao   String?
   preco       Decimal
-  tipo        String // Exemplo: Higiene, Bebida, Alimentação
+  tipo        String
   imagemUrl   String?
-  estoque     Boolean // Indica se o produto está disponível ou não
-
-  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  estoque     Boolean
+  barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
 }
 
 model Agendamento {
@@ -129,36 +144,37 @@ model Agendamento {
   barbeariaId String
   barbeiroId  String
   servicoId   String
-  data        String // Formato: "YYYY-MM-DD"
-  hora        String // Formato: "HH:mm"
+  data        String
+  hora        String
   status      String @default("Confirmado")
 
   usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  barbeiro  Barbeiro  @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
-  servico   Servico   @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  barbearia  Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbeiro    Barbeiro  @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+  servico     Servico   @relation(fields: [servicoId], references: [id], onDelete: Cascade)
 }
 
 model Avaliacao {
   id          String   @id @default(uuid())
   usuarioId   String
   barbeariaId String
-  nota        Int // A nota da avaliação (ex: 1 a 5)
-  comentario  String? // Comentário opcional
-  dataHora    DateTime @default(now()) // Data e hora da avaliação
+  nota        Int
+  comentario  String?
+  dataHora    DateTime @default(now())
 
   usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbearia  Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
 }
 
-model Usuario { // clientes 
-  id         String  @id @default(uuid())
-  nome       String
-  email      String  @unique
-  senha      String
-  telefone   String?
-  fotoPerfil String?
-
-  agendamentos Agendamento[] // Relacionamento com os agendamentos feitos pelos clientes
-  avaliacoes   Avaliacao[] // Relacionamento com as avaliações feitas pelos clientes
+// Este modelo é para os clientes finais da barbearia, não para os gestores.
+// Está correto e não precisa de alterações.
+model Usuario {
+  id           String        @id @default(uuid())
+  nome         String
+  email        String        @unique
+  senha        String
+  telefone     String?
+  fotoPerfil   String?
+  agendamentos Agendamento[]
+  avaliacoes   Avaliacao[]
 }

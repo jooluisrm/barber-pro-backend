@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../libs/prisma';
+import { AuthRequest } from '../middlewares/authMiddlewareBarber';
 
 export const mainRouter = Router();
 

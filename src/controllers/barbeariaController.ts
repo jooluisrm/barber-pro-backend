@@ -1,5 +1,10 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, loginBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, registerBarbeiroService, registrarNovaBarbearia, updateBarbeiroService, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { PrismaClient, Role } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import { prisma } from '../libs/prisma';
+import jwt from 'jsonwebtoken';
+import { AuthRequest } from '../middlewares/authMiddlewareBarber';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -220,27 +225,148 @@ export const obterRedesSociais = async (req: Request, res: Response) => {
 };
 
 
-export const registrarBarbearia = async (req: Request, res: Response) => {
+export const registrarNovaBarbeariaController = async (req: Request, res: Response) => {
+    // 1. Extrair os dados para a barbearia e para o seu administrador.
+    // O seu frontend precisará enviar estes campos.
+    const {
+        nomeBarbearia,
+        endereco,
+        celular,
+        telefone,
+        latitude,
+        longitude,
+        // Dados do Admin
+        nomeAdmin,
+        emailAdmin,
+        senhaAdmin,
+    } = req.body;
+
+    // 2. Validação dos dados essenciais
+    if (!nomeBarbearia || !nomeAdmin || !emailAdmin || !senhaAdmin) {
+        return res.status(400).json({ message: 'Campos essenciais para barbearia e admin são obrigatórios.' });
+    }
+
     try {
-        const novaBarbearia = await registrarNovaBarbearia(req.body);
-        return res.status(201).json({
-            message: 'Barbearia cadastrada com sucesso!',
-            barbearia: novaBarbearia
+        // 3. Criptografar a senha do admin
+        const senhaHash = await bcrypt.hash(senhaAdmin, 10);
+
+        // 4. Usar uma transação para criar a Barbearia e o UsuarioSistema (Admin)
+        const resultado = await prisma.$transaction(async (tx) => {
+            // Cria a barbearia
+            const novaBarbearia = await tx.barbearia.create({
+                data: {
+                    nome: nomeBarbearia,
+                    endereco,
+                    celular,
+                    telefone,
+                    latitude: parseFloat(latitude),
+                    longitude: parseFloat(longitude),
+                },
+            });
+
+            // Cria o usuário admin e o conecta à barbearia criada acima
+            const adminUsuario = await tx.usuarioSistema.create({
+                data: {
+                    nome: nomeAdmin,
+                    email: emailAdmin,
+                    senha: senhaHash,
+                    role: Role.ADMIN, // Define a função como ADMIN
+                    barbeariaId: novaBarbearia.id, // Associa ao ID da nova barbearia
+                },
+            });
+
+            return { novaBarbearia, adminUsuario };
         });
+
+        // 5. Retornar sucesso (sem a senha, claro)
+        const { senha, ...adminSemSenha } = resultado.adminUsuario;
+
+        return res.status(201).json({
+            message: 'Barbearia e administrador cadastrados com sucesso!',
+            barbearia: resultado.novaBarbearia,
+            admin: adminSemSenha,
+        });
+
     } catch (error: any) {
+        // Verificamos se o erro é de violação de campo único
+        if (error.code === 'P2002') {
+            const targetField = error.meta?.target as string[]; // Ex: ['nome'] ou ['email']
+
+            // Se o campo for 'nome', a mensagem é sobre a barbearia
+            if (targetField?.includes('nome')) {
+                return res.status(409).json({ message: 'O nome desta barbearia já está em uso.' });
+            }
+
+            // Se o campo for 'email', a mensagem é sobre o email do admin
+            if (targetField?.includes('email')) {
+                return res.status(409).json({ message: 'Este e-mail já está em uso por outro administrador.' });
+            }
+        }
+
         console.error('Erro ao registrar barbearia:', error);
-        return res.status(500).json({ error: error.message || 'Erro interno do servidor.' });
+        return res.status(500).json({ message: error.message || 'Erro interno do servidor.' });
     }
 };
 
-export const loginBarbeariaController = async (req: Request, res: Response) => {
+const SECRET_KEY = process.env.JWT_SECRET_KEY || 'minhaSuperChaveSecreta';
+// No seu controller de login no backend
+
+export const loginController = async (req: Request, res: Response) => {
     try {
         const { email, senha } = req.body;
-        const resultado = await loginBarbeariaService(email, senha);
-        return res.status(200).json(resultado);
+        if (!email || !senha) {
+            return res.status(400).json({ message: 'E-mail e senha são obrigatórios.' });
+        }
+
+        // ALTERAÇÃO AQUI: Adicionamos o `include`
+        const usuario = await prisma.usuarioSistema.findUnique({
+            where: { email },
+            include: {
+                barbearia: { // Incluímos os dados da barbearia relacionada
+                    select: {
+                        nome: true, // Só precisamos do nome por enquanto
+                        stripeCurrentPeriodEnd: true// Se precisar de mais dados da barbearia no futuro, adicione aqui
+                    }
+                }
+            }
+        });
+
+        if (!usuario) {
+            return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+        }
+
+        const senhaValida = await bcrypt.compare(senha, usuario.senha);
+        if (!senhaValida) {
+            return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+        }
+
+        let perfilBarbeiro = null;
+        if (usuario.role === 'BARBEIRO') {
+            perfilBarbeiro = await prisma.barbeiro.findUnique({
+                where: { usuarioSistemaId: usuario.id },
+                select: { id: true, telefone: true }
+            });
+        }
+
+        const { senha: _, ...dadosUsuario } = usuario;
+        
+        // O objeto `dadosUsuario` agora contém um sub-objeto `barbearia: { nome: '...' }`
+        const usuarioCompleto = {
+            ...dadosUsuario,
+            perfilBarbeiro: perfilBarbeiro
+        };
+        
+        const token = jwt.sign({ id: usuario.id, email: usuario.email, role: usuario.role, barbeariaId: usuario.barbeariaId }, SECRET_KEY, { expiresIn: '8h' });
+
+        return res.status(200).json({
+            message: 'Login realizado com sucesso!',
+            usuario: usuarioCompleto,
+            token,
+        });
+
     } catch (error: any) {
         console.error('Erro ao fazer login:', error);
-        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };
 
@@ -252,6 +378,137 @@ export const getAgendamentosController = async (req: Request, res: Response) => 
     } catch (error) {
         console.error('Erro ao buscar agendamentos:', error);
         return res.status(500).json({ error: 'Erro ao buscar agendamentos' });
+    }
+};
+
+export const getAgendamentosPorBarbeiroController = async (req: AuthRequest, res: Response) => {
+    try {
+        const { barbeiroId: barbeiroIdDaUrl } = req.params;
+        const usuarioLogado = req.user;
+
+        if (!usuarioLogado) {
+            // Este caso é improvável se o middleware checkRole for usado antes.
+            return res.status(401).json({ error: 'Não autorizado.' });
+        }
+
+        // --- VERIFICAÇÃO DE PERMISSÃO ---
+        // REGRA 1: Se o usuário logado é um BARBEIRO, ele só pode ver seus próprios agendamentos.
+        if (usuarioLogado.role === 'BARBEIRO') {
+            // Buscamos o perfil de barbeiro associado à conta de login
+            const perfilDoUsuarioLogado = await prisma.barbeiro.findUnique({
+                where: { usuarioSistemaId: usuarioLogado.id },
+                select: { id: true }
+            });
+
+            if (perfilDoUsuarioLogado?.id !== barbeiroIdDaUrl) {
+                return res.status(403).json({ error: 'Acesso proibido. Você só pode visualizar seus próprios agendamentos.' });
+            }
+        }
+        // REGRA 2: Se for ADMIN, verifica se o barbeiro consultado pertence à sua barbearia.
+        else if (usuarioLogado.role === 'ADMIN') {
+            const barbeiroConsultado = await prisma.barbeiro.findUnique({
+                where: { id: barbeiroIdDaUrl },
+                select: { barbeariaId: true }
+            });
+            
+            if (barbeiroConsultado?.barbeariaId !== usuarioLogado.barbeariaId) {
+                return res.status(403).json({ error: 'Acesso proibido. Este barbeiro não pertence à sua barbearia.' });
+            }
+        }
+
+        // Se passou nas verificações, busca os agendamentos.
+        const agendamentos = await getAgendamentosPorBarbeiroService(barbeiroIdDaUrl);
+        return res.json(agendamentos);
+
+    } catch (error) {
+        console.error('Erro ao buscar agendamentos do barbeiro:', error);
+        return res.status(500).json({ error: 'Erro interno ao buscar agendamentos.' });
+    }
+};
+
+
+export const getAgendamentosPendentesPorBarbeiroController = async (req: AuthRequest, res: Response) => {
+    // 1. Pegamos o ID do barbeiro da URL e o usuário logado do token
+    const { barbeiroId } = req.params;
+    const usuarioLogado = req.user;
+
+    // Validação inicial
+    if (!barbeiroId) {
+        return res.status(400).json({ error: 'ID do barbeiro é obrigatório na URL.' });
+    }
+
+    if (!usuarioLogado) {
+        return res.status(401).json({ error: 'Não autorizado.' });
+    }
+
+    try {
+        // --- 2. VERIFICAÇÃO DE PERMISSÃO ---
+        if (usuarioLogado.role === 'BARBEIRO') {
+            const perfilDoUsuarioLogado = await prisma.barbeiro.findUnique({
+                where: { usuarioSistemaId: usuarioLogado.id },
+                select: { id: true }
+            });
+            if (perfilDoUsuarioLogado?.id !== barbeiroId) {
+                return res.status(403).json({ error: 'Acesso proibido. Você só pode ver seus próprios agendamentos pendentes.' });
+            }
+        } else if (usuarioLogado.role === 'ADMIN') {
+            const barbeiroConsultado = await prisma.barbeiro.findUnique({
+                where: { id: barbeiroId },
+                select: { barbeariaId: true }
+            });
+            if (barbeiroConsultado?.barbeariaId !== usuarioLogado.barbeariaId) {
+                return res.status(403).json({ error: 'Acesso proibido. Este barbeiro não pertence à sua barbearia.' });
+            }
+        }
+        
+        // --- 3. LÓGICA DE BUSCA (semelhante à sua, mas com filtro por barbeiroId) ---
+        const agora = new Date();
+        const hojeString = agora.toISOString().split('T')[0]; // "YYYY-MM-DD"
+        const horaAtualString = agora.toLocaleTimeString('pt-BR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }); // "HH:MM"
+
+        const agendamentosDoBanco = await prisma.agendamento.findMany({
+            where: {
+                barbeiroId: barbeiroId, // Filtro principal da rota
+                status: 'Confirmado',
+                OR: [
+                    { data: { lt: hojeString } }, // Agendamentos de dias anteriores
+                    { data: hojeString, hora: { lt: horaAtualString } }, // Agendamentos de hoje que já passaram
+                ],
+            },
+            select: {
+                id: true,
+                status: true,
+                data: true,
+                hora: true,
+                usuario: { select: { nome: true } },
+                servico: { select: { nome: true, preco: true } },
+                barbeiro: { select: { nome: true } }
+            },
+            orderBy: [{ data: 'asc' }, { hora: 'asc' }],
+        });
+
+        // --- 4. FORMATAÇÃO DO RESULTADO ---
+        const agendamentosFormatados = agendamentosDoBanco.map(agendamento => ({
+            idAgendamento: agendamento.id,
+            status: agendamento.status,
+            data: agendamento.data,
+            hora: agendamento.hora,
+            valor: String(agendamento.servico.preco), // Convertendo para string como no seu tipo
+            nomeCliente: agendamento.usuario.nome,
+            nomeBarbeiro: agendamento.barbeiro.nome,
+            nomeServico: agendamento.servico.nome
+        }));
+
+        // 5. Retorna a lista formatada
+        return res.status(200).json(agendamentosFormatados);
+
+    } catch (error) {
+        console.error('Erro ao buscar agendamentos pendentes do barbeiro:', error);
+        return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
     }
 };
 
@@ -273,28 +530,80 @@ export const updateStatusAgendamentoController = async (req: Request, res: Respo
     }
 };
 
+export const registerBarbeiroController = async (req: AuthRequest, res: Response) => {
+    // 1. Pegar o ID da barbearia do ADMIN que está logado (do token!)
+    const { barbeariaId } = req.user!; // O '!' diz ao TS: "confie, o middleware garantiu que `user` existe"
 
-export const registerBarbeiroController = async (req: Request, res: Response) => {
+    // 2. Pegar os dados do novo barbeiro do corpo da requisição
+    const { nome, email, senha, telefone, fotoPerfil } = req.body;
+
+    if (!nome || !email || !senha || !telefone) {
+        return res.status(400).json({ error: 'Nome, email, senha e telefone são obrigatórios.' });
+    }
+
     try {
-        const { nome, email, senha, telefone, fotoPerfil, barbeariaId } = req.body;
-
-        if (!nome || !email || !senha || !telefone || !barbeariaId) {
-            return res.status(400).json({ error: 'Todos os campos obrigatórios devem ser preenchidos.' });
-        }
-
-        const novoBarbeiro = await registerBarbeiroService({
-            nome,
-            email,
-            senha,
-            telefone,
-            fotoPerfil,
-            barbeariaId,
+        // 3. Verificar se o email já está em uso no sistema de login
+        const emailExistente = await prisma.usuarioSistema.findUnique({
+            where: { email },
         });
 
-        return res.status(201).json({ message: 'Barbeiro cadastrado com sucesso!', barbeiro: novoBarbeiro });
+        if (emailExistente) {
+            return res.status(409).json({ error: 'Este e-mail já está em uso no sistema.' });
+        }
+
+        // 4. Criptografar a senha do novo barbeiro
+        const senhaHash = await bcrypt.hash(senha, 10);
+
+        // 5. Usar uma transação para criar o UsuarioSistema e o Perfil de Barbeiro
+        const novoBarbeiroCompleto = await prisma.$transaction(async (tx) => {
+            // Primeiro, cria a conta de login com a role 'BARBEIRO'
+            const novoUsuario = await tx.usuarioSistema.create({
+                data: {
+                    nome,
+                    email,
+                    senha: senhaHash,
+                    fotoPerfil,
+                    role: Role.BARBEIRO, // <-- A role é definida aqui!
+                    barbeariaId: barbeariaId, // <-- O ID da barbearia do admin logado
+                },
+            });
+
+            // Em seguida, cria o perfil do barbeiro e o conecta à conta de login recém-criada
+            const novoPerfilBarbeiro = await tx.barbeiro.create({
+                data: {
+                    nome,
+                    telefone,
+                    fotoPerfil,
+                    barbearia: {
+                        connect: { id: barbeariaId }
+                    },
+                    usuarioSistema: { // <-- A LIGAÇÃO MÁGICA!
+                        connect: { id: novoUsuario.id }
+                    }
+                }
+            });
+
+            return { usuario: novoUsuario, perfil: novoPerfilBarbeiro };
+        });
+
+        // Retira a senha da resposta por segurança
+        const { senha: _, ...usuarioSemSenha } = novoBarbeiroCompleto.usuario;
+
+        return res.status(201).json({
+            message: 'Barbeiro cadastrado com sucesso!',
+            barbeiro: {
+                ...novoBarbeiroCompleto.perfil,
+                usuario: usuarioSemSenha,
+            },
+        });
+
     } catch (error: any) {
         console.error('Erro ao registrar barbeiro:', error);
-        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+        // O P2002 aqui seria redundante pois já verificamos antes, mas é uma boa prática mantê-lo
+        if (error.code === 'P2002') {
+            return res.status(409).json({ error: 'E-mail já cadastrado.' });
+        }
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };
 
@@ -311,20 +620,78 @@ export const deleteBarbeiroController = async (req: Request, res: Response) => {
     }
 };
 
-export const updateBarbeiroController = async (req: Request, res: Response) => {
-    try {
-        const { barbeiroId } = req.params;
-        const { nome, telefone, email } = req.body;
+export const updateBarbeiroController = async (req: AuthRequest, res: Response) => {
+    // 1. ID do barbeiro a ser atualizado (da URL) e dados do utilizador logado (do token)
+    const { barbeiroId } = req.params;
+    const usuarioLogado = req.user!; // Sabemos que existe graças ao middleware
 
-        const resultado = await updateBarbeiroService(barbeiroId, { nome, telefone, email });
+    // 2. Dados para atualização (do corpo da requisição)
+    const { nome, telefone, email } = req.body;
+
+    if (!nome || !telefone || !email) {
+        return res.status(400).json({ error: "Nome, telefone e email são obrigatórios." });
+    }
+
+    try {
+        // 3. Buscar o perfil do barbeiro que será editado, incluindo o ID da sua conta de login
+        const barbeiroParaAtualizar = await prisma.barbeiro.findUnique({
+            where: { id: barbeiroId },
+            select: { usuarioSistemaId: true, barbeariaId: true } // Pegamos o ID da conta de login e da barbearia
+        });
+
+        if (!barbeiroParaAtualizar) {
+            return res.status(404).json({ error: "Perfil de barbeiro não encontrado." });
+        }
+
+        // 4. VERIFICAÇÃO DE PERMISSÃO (Regra de Negócio Crucial)
+        // Se o utilizador logado é um BARBEIRO, ele só pode editar a si mesmo.
+        if (usuarioLogado.role === 'BARBEIRO' && usuarioLogado.id !== barbeiroParaAtualizar.usuarioSistemaId) {
+            return res.status(403).json({ error: "Acesso proibido. Você só pode editar seu próprio perfil." });
+        }
+        // Se o utilizador logado é um ADMIN, ele só pode editar barbeiros da sua própria barbearia.
+        if (usuarioLogado.role === 'ADMIN' && usuarioLogado.barbeariaId !== barbeiroParaAtualizar.barbeariaId) {
+            return res.status(403).json({ error: "Acesso proibido. Este barbeiro não pertence à sua barbearia." });
+        }
+
+        // 5. Verificar se o novo email já está em uso por OUTRO utilizador
+        const emailEmUso = await prisma.usuarioSistema.findFirst({
+            where: {
+                email: email,
+                id: { not: barbeiroParaAtualizar.usuarioSistemaId } // Exclui o próprio utilizador da busca
+            }
+        });
+
+        if (emailEmUso) {
+            return res.status(409).json({ error: "Este e-mail já está em uso por outro utilizador." });
+        }
+
+        // 6. Executar as duas atualizações dentro de uma transação
+        const [usuarioAtualizado, perfilAtualizado] = await prisma.$transaction([
+            // Atualiza a conta de login
+            prisma.usuarioSistema.update({
+                where: { id: barbeiroParaAtualizar.usuarioSistemaId },
+                data: { nome, email } // Atualiza nome e email no sistema de login
+            }),
+            // Atualiza o perfil profissional
+            prisma.barbeiro.update({
+                where: { id: barbeiroId },
+                data: { nome, telefone } // Atualiza nome e telefone no perfil
+            })
+        ]);
+        
+        const { senha, ...usuarioSemSenha } = usuarioAtualizado;
 
         return res.status(200).json({
             message: "Barbeiro atualizado com sucesso!",
-            barbeiro: resultado
+            barbeiro: {
+                ...perfilAtualizado,
+                usuario: usuarioSemSenha,
+            }
         });
+
     } catch (error: any) {
         console.error("Erro ao atualizar barbeiro:", error);
-        return res.status(error.status || 500).json({ error: error.message || "Erro interno do servidor." });
+        return res.status(500).json({ error: "Erro interno do servidor." });
     }
 };
 

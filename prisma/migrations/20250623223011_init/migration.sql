@@ -1,19 +1,49 @@
+-- CreateEnum
+CREATE TYPE "Role" AS ENUM ('ADMIN', 'BARBEIRO');
+
 -- CreateTable
-CREATE TABLE "Barbearia" (
+CREATE TABLE "UsuarioSistema" (
     "id" TEXT NOT NULL,
     "nome" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "senha" TEXT NOT NULL,
-    "endereco" TEXT NOT NULL,
-    "celular" TEXT NOT NULL,
+    "fotoPerfil" TEXT,
+    "role" "Role" NOT NULL,
+    "barbeariaId" TEXT NOT NULL,
+
+    CONSTRAINT "UsuarioSistema_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Barbearia" (
+    "id" TEXT NOT NULL,
+    "nome" TEXT NOT NULL,
+    "endereco" TEXT,
+    "celular" TEXT,
     "telefone" TEXT,
     "fotoPerfil" TEXT,
     "descricao" TEXT,
     "latitude" DOUBLE PRECISION NOT NULL,
     "longitude" DOUBLE PRECISION NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'Ativa',
+    "stripeCustomerId" TEXT,
+    "stripeSubscriptionId" TEXT,
+    "stripePriceId" TEXT,
+    "stripeCurrentPeriodEnd" TIMESTAMP(3),
 
     CONSTRAINT "Barbearia_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Barbeiro" (
+    "id" TEXT NOT NULL,
+    "barbeariaId" TEXT NOT NULL,
+    "nome" TEXT NOT NULL,
+    "telefone" TEXT NOT NULL,
+    "fotoPerfil" TEXT,
+    "usuarioSistemaId" TEXT NOT NULL,
+
+    CONSTRAINT "Barbeiro_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -44,19 +74,6 @@ CREATE TABLE "RedeSocial" (
     "rede" TEXT NOT NULL,
 
     CONSTRAINT "RedeSocial_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Barbeiro" (
-    "id" TEXT NOT NULL,
-    "barbeariaId" TEXT NOT NULL,
-    "nome" TEXT NOT NULL,
-    "email" TEXT NOT NULL,
-    "senha" TEXT NOT NULL,
-    "telefone" TEXT NOT NULL,
-    "fotoPerfil" TEXT,
-
-    CONSTRAINT "Barbeiro_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -133,16 +150,31 @@ CREATE TABLE "Usuario" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UsuarioSistema_email_key" ON "UsuarioSistema"("email");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Barbearia_nome_key" ON "Barbearia"("nome");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Barbearia_email_key" ON "Barbearia"("email");
+CREATE UNIQUE INDEX "Barbearia_stripeCustomerId_key" ON "Barbearia"("stripeCustomerId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Barbeiro_email_key" ON "Barbeiro"("email");
+CREATE UNIQUE INDEX "Barbearia_stripeSubscriptionId_key" ON "Barbearia"("stripeSubscriptionId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Barbeiro_usuarioSistemaId_key" ON "Barbeiro"("usuarioSistemaId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Usuario_email_key" ON "Usuario"("email");
+
+-- AddForeignKey
+ALTER TABLE "UsuarioSistema" ADD CONSTRAINT "UsuarioSistema_barbeariaId_fkey" FOREIGN KEY ("barbeariaId") REFERENCES "Barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Barbeiro" ADD CONSTRAINT "Barbeiro_usuarioSistemaId_fkey" FOREIGN KEY ("usuarioSistemaId") REFERENCES "UsuarioSistema"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Barbeiro" ADD CONSTRAINT "Barbeiro_barbeariaId_fkey" FOREIGN KEY ("barbeariaId") REFERENCES "Barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "HorariosFuncionamentoBarbearia" ADD CONSTRAINT "HorariosFuncionamentoBarbearia_barbeariaId_fkey" FOREIGN KEY ("barbeariaId") REFERENCES "Barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -152,9 +184,6 @@ ALTER TABLE "FormaPagamento" ADD CONSTRAINT "FormaPagamento_barbeariaId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "RedeSocial" ADD CONSTRAINT "RedeSocial_barbeariaId_fkey" FOREIGN KEY ("barbeariaId") REFERENCES "Barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Barbeiro" ADD CONSTRAINT "Barbeiro_barbeariaId_fkey" FOREIGN KEY ("barbeariaId") REFERENCES "Barbearia"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "HorarioTrabalho" ADD CONSTRAINT "HorarioTrabalho_barbeiroId_fkey" FOREIGN KEY ("barbeiroId") REFERENCES "Barbeiro"("id") ON DELETE CASCADE ON UPDATE CASCADE;

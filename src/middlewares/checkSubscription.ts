@@ -1,14 +1,16 @@
-// src/middlewares/checkSubscription.ts
-import { Request, Response, NextFunction } from 'express';
-import { prisma } from '../libs/prisma';
+// src/middlewares/checkSubscription.ts - VERSÃO CORRIGIDA
 
-export const checkSubscription = async (req: Request, res: Response, next: NextFunction) => {
-    // Assumimos que um middleware de autenticação anterior já validou o token
-    // e anexou o ID do usuário ao objeto `req`, por exemplo `req.userId`
-    const barbeariaId = (req as any).userId; // Adapte para como você anexa o usuário
+import { Response, NextFunction } from 'express';
+import { prisma } from '../libs/prisma';
+import { AuthRequest } from './authMiddlewareBarber'; // <-- 1. Importe nossa interface
+
+export const checkSubscription = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    // 2. Pegue o barbeariaId do objeto `user` que o `checkRole` forneceu
+    const barbeariaId = req.user?.barbeariaId;
 
     if (!barbeariaId) {
-        return res.status(401).json({ error: 'Não autorizado' });
+        // Este erro não deveria acontecer se o checkRole for usado antes
+        return res.status(401).json({ error: 'ID da barbearia não encontrado no token.' });
     }
 
     try {
@@ -18,14 +20,13 @@ export const checkSubscription = async (req: Request, res: Response, next: NextF
         });
 
         const isActive = barbearia?.stripeCurrentPeriodEnd 
-                         ? new Date(barbearia.stripeCurrentPeriodEnd) > new Date() 
-                         : false;
+                           ? new Date(barbearia.stripeCurrentPeriodEnd) > new Date() 
+                           : false;
 
         if (!isActive) {
-            return res.status(403).json({ error: 'Acesso negado. Requer uma assinatura ativa.' });
+            return res.status(403).json({ error: 'Acesso negado. Sua assinatura expirou ou está inativa.' });
         }
 
-        // Se a assinatura estiver ativa, permite que a requisição continue
         next();
     } catch (error) {
         res.status(500).json({ error: 'Erro ao verificar a assinatura.' });

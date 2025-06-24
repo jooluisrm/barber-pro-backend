@@ -5,8 +5,8 @@ import 'dotenv/config'; // Garante que as variáveis de ambiente sejam carregada
 import cors from 'cors';
 import helmet from 'helmet';
 import { mainRouter } from './routes'; // Suas outras rotas
-import { PrismaClient } from "@prisma/client";
-import { authMiddlewareBarber } from "./middlewares/authMiddlewareBarber";
+import { PrismaClient, Role } from "@prisma/client";
+import { AuthRequest, checkRole } from "./middlewares/authMiddlewareBarber";
 
 const server = express();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Stripe SDK
@@ -118,13 +118,13 @@ server.use(express.urlencoded({ extended: true }));
 // DENTRO DE src/server.ts
 
 // DENTRO DE src/server.ts
-
-// ✅ Nova rota para criar uma sessão do Portal do Cliente
-server.post('/api/create-portal-session', authMiddlewareBarber, async (req, res) => {
+// ✅ Rota para criar uma sessão do Portal do Cliente (Stripe)
+// ALTERAÇÃO: Protegida para apenas ADMINS, pois é uma função administrativa.
+server.post('/api/create-portal-session', checkRole([Role.ADMIN]), async (req: AuthRequest, res) => {
     try {
-        const barbeariaId = req.userId; // ID pego pelo authMiddlewareBarber
+        // ALTERAÇÃO: Pegamos o barbeariaId diretamente do token do admin logado.
+        const { barbeariaId } = req.user!;
 
-        // Busca a barbearia para pegar o ID de cliente do Stripe
         const barbearia = await prisma.barbearia.findUnique({
             where: { id: barbeariaId },
             select: { stripeCustomerId: true }
@@ -134,14 +134,11 @@ server.post('/api/create-portal-session', authMiddlewareBarber, async (req, res)
             return res.status(400).json({ error: 'Cliente Stripe não encontrado para esta barbearia.' });
         }
 
-        // Cria a sessão do portal
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: barbearia.stripeCustomerId,
-            // A URL para onde o usuário será redirecionado após sair do portal
-            return_url: `${process.env.FRONTEND_URL}/agendamentos`,
+            return_url: `${process.env.FRONTEND_URL}/assinaturas`, // Uma URL de retorno mais apropriada
         });
 
-        // Retorna a URL do portal para o frontend
         res.json({ url: portalSession.url });
 
     } catch (error: any) {
@@ -152,23 +149,33 @@ server.post('/api/create-portal-session', authMiddlewareBarber, async (req, res)
 
 // DENTRO DE src/server.ts, junto com suas outras rotas
 
-// ✅ Nova rota para buscar os dados do usuário logado
-server.get('/api/auth/me', authMiddlewareBarber, async (req, res) => {
+// ALTERAÇÃO: Agora busca o usuário no modelo correto (UsuarioSistema).
+server.get('/api/auth/me', checkRole([Role.ADMIN, Role.BARBEIRO]), async (req: AuthRequest, res) => {
     try {
-        const barbeariaId = req.userId; // ID pego pelo authMiddlewareBarber
+        // ALTERAÇÃO: Pegamos o ID do usuário (não da barbearia) do token.
+        const usuarioId = req.user?.id;
 
-        const barbearia = await prisma.barbearia.findUnique({
-            where: { id: barbeariaId },
+        const usuario = await prisma.usuarioSistema.findUnique({
+            where: { id: usuarioId },
+            // Opcional: incluir dados da barbearia na resposta
+            include: {
+                barbearia: {
+                    select: {
+                        nome: true,
+                        status: true,
+                        stripeCurrentPeriodEnd: true
+                    }
+                }
+            }
         });
 
-        if (!barbearia) {
+        if (!usuario) {
             return res.status(404).json({ error: 'Usuário não encontrado.' });
         }
         
-        // Retorna o objeto completo e atualizado da barbearia
-        // (sem a senha, por segurança)
-        const { senha, ...dadosBarbearia } = barbearia;
-        return res.json(dadosBarbearia);
+        // Remove a senha antes de enviar a resposta
+        const { senha, ...dadosUsuario } = usuario;
+        return res.json(dadosUsuario);
 
     } catch (error) {
         return res.status(500).json({ error: 'Erro interno do servidor.' });
@@ -223,50 +230,45 @@ server.get('/api/auth/status', async (req, res) => {
     }
 });
 
-// --- ROTA DE CHECKOUT (VERSÃO FINAL E CORRETA) ---
-server.post('/create-checkout-session', async (req, res) => {
-    const { barbeariaId } = req.body;
-    if (!barbeariaId) {
-        return res.status(400).json({ error: { message: "ID da barbearia é obrigatório" } });
-    }
-
+// ✅ Rota para iniciar o checkout da assinatura
+// ALTERAÇÃO: Agora é segura e só pode ser iniciada por um ADMIN logado.
+server.post('/create-checkout-session', checkRole([Role.ADMIN]), async (req: AuthRequest, res) => {
     try {
-        // 1. BUSCA A BARBEARIA REAL NO BANCO DE DADOS
+        // ALTERAÇÃO: Pegamos os dados do token, em vez do `req.body`. Mais seguro!
+        const { barbeariaId, email: adminEmail } = req.user!;
+        
         const barbearia = await prisma.barbearia.findUnique({
             where: { id: barbeariaId },
         });
 
         if (!barbearia) {
-            return res.status(404).json({ error: { message: "Barbearia não encontrada" } });
+            // Este erro é improvável, pois o token garante que a barbearia existe.
+            return res.status(404).json({ error: { message: "Barbearia associada ao seu usuário não encontrada." } });
         }
 
         let customerId = barbearia.stripeCustomerId;
 
-        // 2. SE A BARBEARIA NÃO TIVER UM ID DO STRIPE, CRIA UM E SALVA NO BANCO
+        // Se a barbearia não tem um ID do Stripe, cria um novo
         if (!customerId) {
             const stripeCustomer = await stripe.customers.create({
-                email: barbearia.email,
+                // ALTERAÇÃO: Usa o email do admin logado, que vem do token.
+                email: adminEmail, 
                 metadata: { barbeariaId: barbearia.id },
             });
-
             customerId = stripeCustomer.id;
 
-            // ✅ ESTE É O PASSO CRUCIAL QUE FALTAVA: SALVAR O ID NO BANCO
             await prisma.barbearia.update({
                 where: { id: barbeariaId },
                 data: { stripeCustomerId: customerId },
             });
-            console.log(`Stripe Customer ID criado e salvo para a barbearia: ${barbeariaId}`);
         }
 
-        // 3. CRIA A SESSÃO DE CHECKOUT USANDO O CUSTOMER ID CORRETO
         const priceId = 'price_1RbgVkIkmsl8H3nCKbi8vW5a'; // Seu Price ID
         const session = await stripe.checkout.sessions.create({
             customer: customerId,
             payment_method_types: ['card'],
             mode: 'subscription',
             line_items: [{ price: priceId, quantity: 1 }],
-            client_reference_id: barbearia.id, // ID interno para referência no webhook
             success_url: `${process.env.FRONTEND_URL}/sucesso?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.FRONTEND_URL}/cancelado`,
         });
@@ -278,6 +280,7 @@ server.post('/create-checkout-session', async (req, res) => {
         res.status(500).json({ error: { message: e.message } });
     }
 });
+
 
 
 // Suas outras rotas do mainRouter
