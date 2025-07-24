@@ -70,7 +70,7 @@ router.post('/login', loginController);
 router.get('/agendamentos/pendente/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), getAgendamentosPendentesPorBarbeiroController);
 router.get('/agendamentos/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), getAgendamentosPorBarbeiroController);
 router.get('/agendamentos/:barbeariaId', getAgendamentosController);
-router.put('/agendamento/status/:agendamentoId', checkSubscription, updateStatusAgendamentoController);
+router.put('/agendamento/status/:agendamentoId', checkRole([Role.ADMIN, Role.BARBEIRO]), checkSubscription, updateStatusAgendamentoController);
 router.post('/agendamentos/visitante', checkRole([Role.ADMIN, Role.BARBEIRO]), createAgendamentoVisitanteController);
 
 router.post('/barbeiro/register', checkRole([Role.ADMIN]), checkSubscription, registerBarbeiroController);
