@@ -16,53 +16,6 @@ mainRouter.use('/barbearia', barbeariaRoutes);
 mainRouter.use('/barbeiro', barbeiroRoutes);
 mainRouter.use('/agendamentos', agendamentoRoutes);
 
-
-
-// Rota usando o seu novo formato - está correta e segura.
-mainRouter.patch('/barbearia/:barbeariaId/agendamentos/:agendamentoId/concluir', async (req, res) => {
-  // Pega ambos os IDs diretamente dos parâmetros da URL.
-  const { agendamentoId, barbeariaId } = req.params;
-
-  // A verificação `if (!barbeariaId)` é uma boa prática, embora o roteamento do Express
-  // já garanta que o parâmetro exista se a rota for correspondida.
-  if (!barbeariaId || !agendamentoId) {
-    return res.status(400).json({
-      error: 'O ID da barbearia e do agendamento são obrigatórios.'
-    });
-  }
-
-  try {
-    // A chamada ao Prisma permanece atômica e segura.
-    // Ela só executa a atualização se um registro for encontrado
-    // com o ID do agendamento, o ID da barbearia E o status "Confirmado".
-    const agendamentoAtualizado = await prisma.agendamento.update({
-      where: {
-        id: agendamentoId,
-        barbeariaId: barbeariaId,
-        status: 'Confirmado',
-      },
-      data: {
-        status: 'Feito',
-      },
-    });
-
-    return res.status(200).json({ message: 'Agendamento concluído com sucesso!' });
-
-  } catch (error: any) {
-    // O tratamento de erro para o código 'P2025' continua sendo a forma ideal
-    // de lidar com falhas na condição do 'where'.
-    if (error.code === 'P2025') {
-      return res.status(404).json({
-        error: "Operação falhou: o agendamento não foi encontrado, não pertence a esta barbearia ou seu status não permite a alteração."
-      });
-    }
-
-    console.error('Erro ao concluir agendamento:', error);
-    return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
-  }
-});
-
-// Adicione esta rota ao seu arquivo mainRouter
 mainRouter.patch('/barbearia/:barbeariaId/agendamentos/:agendamentoId/cancelar', async (req, res) => {
   // 1. Pega os IDs diretamente dos parâmetros da URL
   const { agendamentoId, barbeariaId } = req.params;

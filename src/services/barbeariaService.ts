@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 import { prisma } from "../libs/prisma";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -1077,4 +1077,29 @@ export const listarAgendamentosPendentesService = async (barbeariaId: string): P
     }));
 
     return agendamentosFormatados;
+};
+
+export const concluirAgendamentoService = async (agendamentoId: string, barbeariaId: string): Promise<void> => {
+    try {
+        // 1. A lógica de negócio principal: a atualização atômica
+        await prisma.agendamento.update({
+            where: {
+                id: agendamentoId,
+                barbeariaId: barbeariaId,
+                status: 'Confirmado', // Só atualiza se o status for 'Confirmado'
+            },
+            data: {
+                status: 'Feito',
+            },
+        });
+    } catch (error) {
+        // 2. Tradução do erro específico do Prisma para um erro de negócio
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+            throw new Error(
+                "Operação falhou: o agendamento não foi encontrado, não pertence a esta barbearia ou seu status não permite a alteração."
+            );
+        }
+        // 3. Lançamento de outros erros inesperados
+        throw error;
+    }
 };

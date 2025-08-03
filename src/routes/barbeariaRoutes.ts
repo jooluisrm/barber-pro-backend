@@ -45,6 +45,7 @@ import {
     atualizarUsuarioController,
     alterarSenhaController,
     listarAgendamentosPendentesController,
+    concluirAgendamentoController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -118,6 +119,11 @@ router.get(
     '/agendamentos/pendente/:barbeariaId',
     checkRole([Role.ADMIN, Role.BARBEIRO]), // Apenas usuários autorizados podem ver
     listarAgendamentosPendentesController
+);
+router.patch(
+    '/:barbeariaId/agendamentos/:agendamentoId/concluir',
+    checkRole([Role.ADMIN, Role.BARBEIRO]), // Protegendo a rota
+    concluirAgendamentoController
 );
 
 export default router;
