@@ -1,3 +1,4 @@
+import { Role } from "@prisma/client";
 import { prisma } from "../libs/prisma";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -895,4 +896,63 @@ export const createAgendamentoVisitanteService = async ({
     });
 
     return novoAgendamento;
+};
+
+interface UpdateParams {
+    usuarioId: string;
+    dadosUpdate: { nome?: string; email?: string };
+    usuarioLogado: any;
+}
+
+export const atualizarUsuarioService = async ({ usuarioId, dadosUpdate, usuarioLogado }: UpdateParams) => {
+    // 1. Lógica de autorização
+    if (usuarioLogado.role !== Role.ADMIN && usuarioId !== usuarioLogado.id) {
+        throw new Error('Acesso negado. Você só pode alterar o seu próprio perfil.');
+    }
+
+    // 2. Busca o usuário que será atualizado no banco
+    const usuarioAtual = await prisma.usuarioSistema.findUnique({
+        where: { id: usuarioId },
+    });
+
+    if (!usuarioAtual) {
+        throw new Error('Usuário a ser atualizado não encontrado.');
+    }
+
+    // 3. Limpeza e preparação dos dados
+    const novoNome = dadosUpdate.nome?.trim();
+    const novoEmail = dadosUpdate.email?.trim().toLowerCase();
+
+    // 4. Validação de dados contra o estado atual do banco
+    if (novoEmail && novoEmail !== usuarioAtual.email) {
+        const emailExistente = await prisma.usuarioSistema.findUnique({
+            where: { email: novoEmail },
+        });
+        if (emailExistente) {
+            throw new Error('Este email já está em uso por outra conta.');
+        }
+    }
+
+    const isNomeIgual = !novoNome || novoNome === usuarioAtual.nome;
+    const isEmailIgual = !novoEmail || novoEmail === usuarioAtual.email;
+
+    if (isNomeIgual && isEmailIgual) {
+        throw new Error('Nenhum dado novo para atualizar.');
+    }
+    
+    // 5. Construção do objeto de atualização
+    const dadosParaAtualizar: { nome?: string; email?: string } = {};
+    if (!isNomeIgual) dadosParaAtualizar.nome = novoNome;
+    if (!isEmailIgual) dadosParaAtualizar.email = novoEmail;
+
+    // 6. Execução da atualização no banco
+    const usuarioAtualizado = await prisma.usuarioSistema.update({
+        where: { id: usuarioId },
+        data: dadosParaAtualizar,
+    });
+
+    // 7. Remoção de dados sensíveis antes de retornar
+    const { senha, ...dadosParaRetorno } = usuarioAtualizado;
+
+    return dadosParaRetorno;
 };

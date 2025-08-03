@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
@@ -1129,5 +1129,61 @@ export const createAgendamentoVisitanteController = async (req: Request, res: Re
     } catch (error: any) {
         console.error("Erro ao criar agendamento:", error);
         return res.status(error.statusCode || 500).json({ error: error.message || 'Erro interno do servidor.' });
+    }
+};
+
+
+export const atualizarUsuarioController = async (req: AuthRequest, res: Response) => {
+    try {
+        // 1. Extração de dados da requisição
+        const { usuarioId } = req.params;
+        const { nome, email } = req.body;
+        
+        // O middleware 'checkRole' já garante que req.user existe
+        const usuarioLogado = req.user!; 
+
+        // 2. Validação de entrada (rápida e inicial)
+        if (!nome && !email) {
+            return res.status(400).json({ error: 'Nenhum dado fornecido para atualização.' });
+        }
+        if ((nome && typeof nome !== 'string') || (nome && nome.trim() === '')) {
+            return res.status(400).json({ error: 'O nome fornecido é inválido.' });
+        }
+        if ((email && typeof email !== 'string') || (email && email.trim() === '')) {
+            return res.status(400).json({ error: 'O email fornecido é inválido.' });
+        }
+
+        // 3. Chamada para a camada de serviço com os dados necessários
+        const usuarioAtualizado = await atualizarUsuarioService({
+            usuarioId,
+            dadosUpdate: { nome, email },
+            usuarioLogado
+        });
+
+        // 4. Resposta de sucesso
+        return res.status(200).json({
+            message: 'Usuário atualizado com sucesso!',
+            usuario: usuarioAtualizado,
+        });
+
+    } catch (error: any) {
+        // 5. Tratamento de erros específicos vindos do serviço
+        // Mapeia mensagens de erro para status HTTP apropriados
+        if (error.message === 'Acesso negado. Você só pode alterar o seu próprio perfil.') {
+            return res.status(403).json({ error: error.message });
+        }
+        if (error.message === 'Usuário a ser atualizado não encontrado.') {
+            return res.status(404).json({ error: error.message });
+        }
+        if (error.message === 'Este email já está em uso por outra conta.') {
+            return res.status(409).json({ error: error.message });
+        }
+        if (error.message === 'Nenhum dado novo para atualizar.') {
+            return res.status(400).json({ error: error.message });
+        }
+
+        // 6. Resposta de erro genérico
+        console.error('Erro ao atualizar usuário:', error);
+        return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
     }
 };

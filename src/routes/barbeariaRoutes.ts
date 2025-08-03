@@ -42,6 +42,7 @@ import {
     loginController,
     getAgendamentosPorBarbeiroController,
     getAgendamentosPendentesPorBarbeiroController,
+    atualizarUsuarioController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -104,87 +105,7 @@ router.post('/:barbeariaId/horario-funcionamento', checkRole([Role.ADMIN]), crea
 router.put('/:barbeariaId/horario-funcionamento/:horarioId', checkRole([Role.ADMIN]), updateHorarioFuncionamentoController);
 router.delete('/:barbeariaId/horario-funcionamento/:horarioId', checkRole([Role.ADMIN]), deleteHorarioFuncionamentoController);
 
-router.patch('/usuarios-sistema/:usuarioId', checkRole(['ADMIN', 'BARBEIRO']), async (req: AuthRequest, res) => { // Usando a tipagem AuthRequest
-    
-    // ID do usuário a ser atualizado (da URL)
-    const { usuarioId } = req.params;
-    
-    // Dados do usuário logado (injetados pelo middleware `checkRole`)
-    // Usamos '!' pois o middleware garante que req.user existe neste ponto.
-    const idDoUsuarioLogado = req.user!.id;
-    const roleDoUsuarioLogado = req.user!.role;
-    
-    // --- LÓGICA DE AUTORIZAÇÃO APRIMORADA ---
-    // Se o usuário logado NÃO é um ADMIN e está tentando editar um perfil que não é o seu...
-    if (roleDoUsuarioLogado !== 'ADMIN' && usuarioId !== idDoUsuarioLogado) {
-      // ...bloqueia o acesso.
-      return res.status(403).json({ error: 'Acesso negado. Você só pode alterar o seu próprio perfil.' });
-    }
-
-    // Novos dados (do corpo da requisição)
-    const { nome, email } = req.body;
-
-    // O restante da lógica de validação e atualização permanece o mesmo, pois já era robusto.
-    if (!nome && !email) {
-      return res.status(400).json({ error: 'Nenhum dado fornecido para atualização.' });
-    }
-    if ((nome && typeof nome !== 'string') || (nome && nome.trim() === '')) {
-      return res.status(400).json({ error: 'O nome fornecido é inválido.' });
-    }
-    if ((email && typeof email !== 'string') || (email && email.trim() === '')) {
-      return res.status(400).json({ error: 'O email fornecido é inválido.' });
-    }
-
-    try {
-      const usuarioAtual = await prisma.usuarioSistema.findUnique({
-        where: { id: usuarioId },
-      });
-
-      if (!usuarioAtual) {
-        return res.status(404).json({ error: 'Usuário a ser atualizado não encontrado.' });
-      }
-
-      const novoNome = nome?.trim();
-      const novoEmail = email?.trim().toLowerCase();
-
-      if (novoEmail && novoEmail !== usuarioAtual.email) {
-        const emailExistente = await prisma.usuarioSistema.findUnique({
-          where: { email: novoEmail },
-        });
-        if (emailExistente) {
-          return res.status(409).json({ error: 'Este email já está em uso por outra conta.' });
-        }
-      }
-
-      const isNomeIgual = !novoNome || novoNome === usuarioAtual.nome;
-      const isEmailIgual = !novoEmail || novoEmail === usuarioAtual.email;
-
-      if (isNomeIgual && isEmailIgual) {
-        return res.status(400).json({ message: 'Nenhum dado novo para atualizar.' });
-      }
-      
-      const dadosParaAtualizar: { nome?: string; email?: string } = {};
-      if (!isNomeIgual) dadosParaAtualizar.nome = novoNome;
-      if (!isEmailIgual) dadosParaAtualizar.email = novoEmail;
-
-      const usuarioAtualizado = await prisma.usuarioSistema.update({
-        where: { id: usuarioId },
-        data: dadosParaAtualizar,
-      });
-
-      const { senha, ...dadosParaRetorno } = usuarioAtualizado;
-
-      return res.status(200).json({
-        message: 'Usuário atualizado com sucesso!',
-        usuario: dadosParaRetorno,
-      });
-
-    } catch (error) {
-      console.error('Erro ao atualizar usuário:', error);
-      return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
-    }
-  }
-);
+router.patch('/usuarios-sistema/:usuarioId', checkRole([Role.ADMIN, Role.BARBEIRO]), atualizarUsuarioController);
 
 router.patch(
   '/usuarios-sistema/:usuarioId/alterar-senha',
