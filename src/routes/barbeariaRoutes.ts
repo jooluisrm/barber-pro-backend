@@ -43,6 +43,7 @@ import {
     getAgendamentosPorBarbeiroController,
     getAgendamentosPendentesPorBarbeiroController,
     atualizarUsuarioController,
+    alterarSenhaController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -106,72 +107,10 @@ router.put('/:barbeariaId/horario-funcionamento/:horarioId', checkRole([Role.ADM
 router.delete('/:barbeariaId/horario-funcionamento/:horarioId', checkRole([Role.ADMIN]), deleteHorarioFuncionamentoController);
 
 router.patch('/usuarios-sistema/:usuarioId', checkRole([Role.ADMIN, Role.BARBEIRO]), atualizarUsuarioController);
-
 router.patch(
-  '/usuarios-sistema/:usuarioId/alterar-senha',
-  checkRole(['ADMIN', 'BARBEIRO']),
-  async (req: AuthRequest, res) => {
-    // --- Obtenção de Dados ---
-    const { usuarioId } = req.params;
-    const { currentPassword, newPassword } = req.body;
-    const idDoUsuarioLogado = req.user!.id;
-    const roleDoUsuarioLogado = req.user!.role;
-
-    // --- Lógica de Autorização ---
-    if (roleDoUsuarioLogado !== 'ADMIN' && usuarioId !== idDoUsuarioLogado) {
-      return res.status(403).json({ error: 'Acesso negado. Você só pode alterar sua própria senha.' });
-    }
-
-    // --- 2. Validação de Entrada ---
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ error: 'A senha atual e a nova senha são obrigatórias.' });
-    }
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'A nova senha deve ter no mínimo 6 caracteres.' });
-    }
-    if (currentPassword === newPassword) {
-        return res.status(400).json({ error: 'A nova senha não pode ser igual à senha atual.' });
-    }
-
-    try {
-      // --- 3. Busca do Usuário e sua Senha Hasheada ---
-      const usuario = await prisma.usuarioSistema.findUnique({
-        where: { id: usuarioId },
-      });
-
-      if (!usuario) {
-        return res.status(404).json({ error: 'Usuário não encontrado.' });
-      }
-
-      // --- 4. Verificação da Senha Atual ---
-      // Compara a senha enviada (texto plano) com a senha hasheada do banco.
-      const isSenhaAtualValida = await bcrypt.compare(currentPassword, usuario.senha);
-
-      if (!isSenhaAtualValida) {
-        // Usamos 401 Unauthorized pois as credenciais (senha atual) estão incorretas.
-        return res.status(401).json({ error: 'Senha atual incorreta.' });
-      }
-
-      // --- 5. Hashing da Nova Senha ---
-      // Gera um "salt" e cria o hash da nova senha. O segundo argumento (10) é o custo do hash.
-      const novaSenhaHasheada = await bcrypt.hash(newPassword, 10);
-
-      // --- 6. Atualização no Banco de Dados ---
-      await prisma.usuarioSistema.update({
-        where: { id: usuarioId },
-        data: {
-          senha: novaSenhaHasheada,
-        },
-      });
-      
-      // --- 7. Resposta de Sucesso ---
-      return res.status(200).json({ message: 'Senha alterada com sucesso!' });
-
-    } catch (error) {
-      console.error('Erro ao alterar senha:', error);
-      return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
-    }
-  }
+    '/usuarios-sistema/:usuarioId/alterar-senha',
+    checkRole([Role.ADMIN, Role.BARBEIRO]),
+    alterarSenhaController 
 );
 
 export default router;

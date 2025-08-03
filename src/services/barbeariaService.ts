@@ -956,3 +956,58 @@ export const atualizarUsuarioService = async ({ usuarioId, dadosUpdate, usuarioL
 
     return dadosParaRetorno;
 };
+
+interface AlterarSenhaParams {
+    usuarioId: string;
+    currentPassword?: string;
+    newPassword?: string;
+    usuarioLogado: any;
+}
+
+export const alterarSenhaService = async ({
+    usuarioId,
+    currentPassword,
+    newPassword,
+    usuarioLogado,
+}: AlterarSenhaParams): Promise<void> => {
+    
+    // 1. Lógica de Autorização
+    if (usuarioLogado.role !== Role.ADMIN && usuarioId !== usuarioLogado.id) {
+        throw new Error('Acesso negado. Você só pode alterar sua própria senha.');
+    }
+
+    // 2. Validação de Entrada
+    if (!currentPassword || !newPassword) {
+        throw new Error('A senha atual e a nova senha são obrigatórias.');
+    }
+    if (newPassword.length < 6) {
+        throw new Error('A nova senha deve ter no mínimo 6 caracteres.');
+    }
+    if (currentPassword === newPassword) {
+        throw new Error('A nova senha não pode ser igual à senha atual.');
+    }
+
+    // 3. Busca do Usuário no Banco
+    const usuario = await prisma.usuarioSistema.findUnique({
+        where: { id: usuarioId },
+    });
+
+    if (!usuario) {
+        throw new Error('Usuário não encontrado.');
+    }
+
+    // 4. Verificação da Senha Atual
+    const isSenhaAtualValida = await bcrypt.compare(currentPassword, usuario.senha);
+
+    if (!isSenhaAtualValida) {
+        throw new Error('Senha atual incorreta.');
+    }
+
+    // 5. Hashing e Atualização da Nova Senha
+    const novaSenhaHasheada = await bcrypt.hash(newPassword, 10);
+
+    await prisma.usuarioSistema.update({
+        where: { id: usuarioId },
+        data: { senha: novaSenhaHasheada },
+    });
+};

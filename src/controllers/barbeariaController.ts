@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { alterarSenhaService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
@@ -1184,6 +1184,52 @@ export const atualizarUsuarioController = async (req: AuthRequest, res: Response
 
         // 6. Resposta de erro genérico
         console.error('Erro ao atualizar usuário:', error);
+        return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
+    }
+};
+
+
+export const alterarSenhaController = async (req: AuthRequest, res: Response) => {
+    try {
+        // 1. Extração de dados da requisição
+        const { usuarioId } = req.params;
+        const { currentPassword, newPassword } = req.body;
+        const usuarioLogado = req.user!;
+
+        // 2. Chamada para a camada de serviço
+        await alterarSenhaService({
+            usuarioId,
+            currentPassword,
+            newPassword,
+            usuarioLogado,
+        });
+
+        // 3. Resposta de sucesso
+        return res.status(200).json({ message: 'Senha alterada com sucesso!' });
+
+    } catch (error: any) {
+        // 4. Mapeamento de erros específicos para status HTTP
+        const errorMessage = error.message;
+
+        if (errorMessage.includes('Acesso negado')) {
+            return res.status(403).json({ error: errorMessage });
+        }
+        if (
+            errorMessage.includes('obrigatórias') ||
+            errorMessage.includes('mínimo 6 caracteres') ||
+            errorMessage.includes('igual à senha atual')
+        ) {
+            return res.status(400).json({ error: errorMessage });
+        }
+        if (errorMessage.includes('Usuário não encontrado')) {
+            return res.status(404).json({ error: errorMessage });
+        }
+        if (errorMessage.includes('Senha atual incorreta')) {
+            return res.status(401).json({ error: errorMessage });
+        }
+
+        // 5. Erro genérico
+        console.error('Erro ao alterar senha:', error);
         return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
     }
 };
