@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { alterarSenhaService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { alterarSenhaService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
@@ -1287,6 +1287,34 @@ export const concluirAgendamentoController = async (req: AuthRequest, res: Respo
         
         // 6. Erro genérico
         console.error('Erro ao concluir agendamento:', error);
+        return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
+    }
+};
+
+export const cancelarAgendamentoController = async (req: AuthRequest, res: Response) => {
+    try {
+        // 1. Extração de dados da requisição
+        const { agendamentoId, barbeariaId } = req.params;
+        const usuarioLogado = req.user!;
+
+        // 2. Validação de segurança (idêntica à anterior)
+        if (usuarioLogado.role === 'BARBEIRO' && usuarioLogado.barbeariaId !== barbeariaId) {
+            return res.status(403).json({ error: 'Acesso negado para cancelar agendamentos desta barbearia.' });
+        }
+
+        // 3. Chamada para o novo serviço de cancelamento
+        await cancelarAgendamentoService(agendamentoId, barbeariaId);
+
+        // 4. Resposta de sucesso
+        return res.status(200).json({ message: 'Agendamento cancelado com sucesso!' });
+
+    } catch (error: any) {
+        // 5. Tratamento de erro (idêntico ao anterior)
+        if (error.message.includes('Operação falhou')) {
+            return res.status(404).json({ error: error.message });
+        }
+        
+        console.error('Erro ao cancelar agendamento:', error);
         return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
     }
 };

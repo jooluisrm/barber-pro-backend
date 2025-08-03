@@ -1103,3 +1103,27 @@ export const concluirAgendamentoService = async (agendamentoId: string, barbeari
         throw error;
     }
 };
+
+export const cancelarAgendamentoService = async (agendamentoId: string, barbeariaId: string): Promise<void> => {
+    try {
+        // A lógica atômica é a mesma, só muda o dado a ser atualizado
+        await prisma.agendamento.update({
+            where: {
+                id: agendamentoId,
+                barbeariaId: barbeariaId,
+                status: 'Confirmado', // Só pode cancelar o que está confirmado
+            },
+            data: {
+                status: 'Cancelado', // <-- ÚNICA MUDANÇA REAL
+            },
+        });
+    } catch (error) {
+        // O tratamento de erro é exatamente o mesmo
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+            throw new Error(
+                "Operação falhou: o agendamento não foi encontrado, não pertence a esta barbearia ou seu status não permite a alteração."
+            );
+        }
+        throw error;
+    }
+};

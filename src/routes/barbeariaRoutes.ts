@@ -1,51 +1,52 @@
 import express from 'express';
 import {
-    obterBarbeariasAtivas,
-    obterBarbeariasProximas,
-    obterBarbeariasPorNome,
-    obterBarbeariaPorNome,
-    obterServicosPorBarbearia,
-    obterBarbeirosPorBarbearia,
-    obterProdutosPorBarbearia,
-    obterAvaliacoesPorBarbearia,
-    criarAvaliacao,
-    obterHorariosFuncionamento,
-    obterFormasPagamento,
-    obterRedesSociais,
-    getAgendamentosController,
-    updateStatusAgendamentoController,
-    registerBarbeiroController,
-    deleteBarbeiroController,
-    updateBarbeiroController,
-    getHorariosPorDiaController,
-    listarServicosController,
-    criarServicoController,
-    editarServicoController,
-    deletarServicoController,
-    listarProdutosController,
-    criarProdutoController,
-    editarProdutoController,
-    deletarProdutoController,
-    listarRedesSociaisController,
-    criarRedeSocialController,
-    editarRedeSocialController,
-    deletarRedeSocialController,
-    getFormasPagamentoController,
-    createFormaPagamentoController,
-    deleteFormaPagamentoController,
-    getHorariosFuncionamentoController,
-    createHorarioFuncionamentoController,
-    updateHorarioFuncionamentoController,
-    deleteHorarioFuncionamentoController,
-    createAgendamentoVisitanteController,
-    registrarNovaBarbeariaController,
-    loginController,
-    getAgendamentosPorBarbeiroController,
-    getAgendamentosPendentesPorBarbeiroController,
-    atualizarUsuarioController,
-    alterarSenhaController,
-    listarAgendamentosPendentesController,
-    concluirAgendamentoController,
+  obterBarbeariasAtivas,
+  obterBarbeariasProximas,
+  obterBarbeariasPorNome,
+  obterBarbeariaPorNome,
+  obterServicosPorBarbearia,
+  obterBarbeirosPorBarbearia,
+  obterProdutosPorBarbearia,
+  obterAvaliacoesPorBarbearia,
+  criarAvaliacao,
+  obterHorariosFuncionamento,
+  obterFormasPagamento,
+  obterRedesSociais,
+  getAgendamentosController,
+  updateStatusAgendamentoController,
+  registerBarbeiroController,
+  deleteBarbeiroController,
+  updateBarbeiroController,
+  getHorariosPorDiaController,
+  listarServicosController,
+  criarServicoController,
+  editarServicoController,
+  deletarServicoController,
+  listarProdutosController,
+  criarProdutoController,
+  editarProdutoController,
+  deletarProdutoController,
+  listarRedesSociaisController,
+  criarRedeSocialController,
+  editarRedeSocialController,
+  deletarRedeSocialController,
+  getFormasPagamentoController,
+  createFormaPagamentoController,
+  deleteFormaPagamentoController,
+  getHorariosFuncionamentoController,
+  createHorarioFuncionamentoController,
+  updateHorarioFuncionamentoController,
+  deleteHorarioFuncionamentoController,
+  createAgendamentoVisitanteController,
+  registrarNovaBarbeariaController,
+  loginController,
+  getAgendamentosPorBarbeiroController,
+  getAgendamentosPendentesPorBarbeiroController,
+  atualizarUsuarioController,
+  alterarSenhaController,
+  listarAgendamentosPendentesController,
+  concluirAgendamentoController,
+  cancelarAgendamentoController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -109,21 +110,10 @@ router.put('/:barbeariaId/horario-funcionamento/:horarioId', checkRole([Role.ADM
 router.delete('/:barbeariaId/horario-funcionamento/:horarioId', checkRole([Role.ADMIN]), deleteHorarioFuncionamentoController);
 
 router.patch('/usuarios-sistema/:usuarioId', checkRole([Role.ADMIN, Role.BARBEIRO]), atualizarUsuarioController);
-router.patch(
-    '/usuarios-sistema/:usuarioId/alterar-senha',
-    checkRole([Role.ADMIN, Role.BARBEIRO]),
-    alterarSenhaController 
-);
+router.patch('/usuarios-sistema/:usuarioId/alterar-senha', checkRole([Role.ADMIN, Role.BARBEIRO]), alterarSenhaController);
 
-router.get(
-    '/agendamentos/pendente/:barbeariaId',
-    checkRole([Role.ADMIN, Role.BARBEIRO]), // Apenas usuários autorizados podem ver
-    listarAgendamentosPendentesController
-);
-router.patch(
-    '/:barbeariaId/agendamentos/:agendamentoId/concluir',
-    checkRole([Role.ADMIN, Role.BARBEIRO]), // Protegendo a rota
-    concluirAgendamentoController
-);
+router.get('/agendamentos/pendente/:barbeariaId', checkRole([Role.ADMIN, Role.BARBEIRO]), listarAgendamentosPendentesController);
+router.patch('/:barbeariaId/agendamentos/:agendamentoId/concluir', checkRole([Role.ADMIN, Role.BARBEIRO]), concluirAgendamentoController);
+router.patch('/:barbeariaId/agendamentos/:agendamentoId/cancelar', checkRole([Role.ADMIN, Role.BARBEIRO]), cancelarAgendamentoController);
 
 export default router;
