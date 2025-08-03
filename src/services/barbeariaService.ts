@@ -1011,3 +1011,70 @@ export const alterarSenhaService = async ({
         data: { senha: novaSenhaHasheada },
     });
 };
+
+type AgendamentoPendenteFormatado = {
+    idAgendamento: string;
+    status: string;
+    data: string;
+    hora: string;
+    valor: number;
+    nomeCliente: string | null;
+    nomeBarbeiro: string | null;
+    nomeServico: string;
+};
+
+export const listarAgendamentosPendentesService = async (barbeariaId: string): Promise<AgendamentoPendenteFormatado[]> => {
+    // Adicionamos uma verificação para garantir que a barbearia existe
+    const barbeariaExiste = await prisma.barbearia.findUnique({
+        where: { id: barbeariaId }
+    });
+
+    if (!barbeariaExiste) {
+        throw new Error('Barbearia não encontrada.');
+    }
+
+    // 1. Lógica para obter data e hora atuais
+    const agora = new Date();
+    const hojeString = agora.toISOString().split('T')[0];
+    const horaAtualString = agora.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    });
+
+    // 2. Consulta ao banco de dados
+    const agendamentosDoBanco = await prisma.agendamento.findMany({
+        where: {
+            barbeariaId: barbeariaId,
+            status: 'Confirmado',
+            OR: [
+                { data: { lt: hojeString } },
+                { data: hojeString, hora: { lt: horaAtualString } },
+            ],
+        },
+        select: {
+            id: true,
+            status: true,
+            data: true,
+            hora: true,
+            usuario: { select: { nome: true } },
+            servico: { select: { nome: true, preco: true } },
+            barbeiro: { select: { nome: true } }
+        },
+        orderBy: [{ data: 'asc' }, { hora: 'asc' }],
+    });
+
+    // 3. Formatação dos dados para a API
+    const agendamentosFormatados = agendamentosDoBanco.map(agendamento => ({
+        idAgendamento: agendamento.id,
+        status: agendamento.status,
+        data: agendamento.data,
+        hora: agendamento.hora,
+        valor: agendamento.servico.preco?.toNumber() ?? 0,
+        nomeCliente: agendamento.usuario?.nome ?? null,
+        nomeBarbeiro: agendamento.barbeiro?.nome ?? null,
+        nomeServico: agendamento.servico.nome
+    }));
+
+    return agendamentosFormatados;
+};

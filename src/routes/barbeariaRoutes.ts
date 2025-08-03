@@ -44,6 +44,7 @@ import {
     getAgendamentosPendentesPorBarbeiroController,
     atualizarUsuarioController,
     alterarSenhaController,
+    listarAgendamentosPendentesController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -111,6 +112,12 @@ router.patch(
     '/usuarios-sistema/:usuarioId/alterar-senha',
     checkRole([Role.ADMIN, Role.BARBEIRO]),
     alterarSenhaController 
+);
+
+router.get(
+    '/agendamentos/pendente/:barbeariaId',
+    checkRole([Role.ADMIN, Role.BARBEIRO]), // Apenas usuários autorizados podem ver
+    listarAgendamentosPendentesController
 );
 
 export default router;
