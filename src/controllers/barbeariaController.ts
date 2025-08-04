@@ -5,6 +5,9 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
 import jwt from 'jsonwebtoken';
 import { AuthRequest } from '../middlewares/authMiddlewareBarber';
+import sharp from 'sharp'; // <-- Importar o sharp
+import path from 'path';   // <-- Importar o path
+import crypto from 'crypto';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -721,20 +724,35 @@ export const listarServicosController = async (req: Request, res: Response) => {
 
 export const criarServicoController = async (req: AuthRequest, res: Response) => {
     try {
-        // --- SUGESTÃO DE SEGURANÇA (ALTAMENTE RECOMENDADO) ---
-        // Em vez de pegar o ID da URL, pegue do token do usuário logado.
-        // Isso impede que um admin de uma barbearia crie um serviço para outra.
         const barbeariaId = req.user?.barbeariaId;
         if (!barbeariaId) {
             throw { status: 403, message: 'Usuário não associado a uma barbearia.' };
         }
         
         const { nome, duracao, preco } = req.body;
-        
-        // <-- MUDANÇA: Pega o nome do arquivo salvo pelo Multer
-        const imagemUrl = req.file ? req.file.filename : undefined;
+        let imagemUrl: string | undefined = undefined; // Variável para o nome final do arquivo
 
-        // <-- MUDANÇA: Passa o nome do arquivo para o serviço
+        // 👇 LÓGICA DE PROCESSAMENTO COM O SHARP 👇
+        if (req.file) {
+            // Gera um nome de arquivo único, mas com a extensão .webp
+            const fileHash = crypto.randomBytes(16).toString('hex');
+            const fileName = `${fileHash}.webp`;
+
+            const uploadFolder = path.resolve(__dirname, '..', '..', 'uploads');
+            const filePath = path.join(uploadFolder, fileName);
+
+            await sharp(req.file.buffer) // Pega o buffer da imagem em memória
+                .resize({ 
+                    width: 500, // Largura máxima de 500px
+                    height: 500, // Altura máxima de 500px
+                    fit: 'cover', // 'cover' recorta para preencher as dimensões
+                })
+                .toFormat('webp', { quality: 80 }) // Converte para o formato WebP com 80% de qualidade
+                .toFile(filePath); // Salva o arquivo processado no disco
+
+            imagemUrl = fileName; // Guarda o nome do novo arquivo para salvar no BD
+        }
+
         const novoServico = await criarServicoService({ barbeariaId, nome, duracao, preco, imagemUrl });
 
         return res.status(201).json({
@@ -742,23 +760,70 @@ export const criarServicoController = async (req: AuthRequest, res: Response) =>
             servico: novoServico,
         });
     } catch (error: any) {
+        // Tratando o erro de arquivo muito grande do Multer
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ error: 'Arquivo muito grande. O limite é de 5MB.' });
+        }
         console.error('Erro ao criar serviço:', error);
         return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
     }
 };
 
-export const editarServicoController = async (req: Request, res: Response) => {
+export const editarServicoController = async (req: AuthRequest, res: Response) => {
     try {
-        const { barbeariaId, servicoId } = req.params;
-        const { nome, duracao, preco } = req.body;
+        const barbeariaId = req.user?.barbeariaId;
+        const { servicoId } = req.params;
 
-        const servicoAtualizado = await editarServicoService({ barbeariaId, servicoId, nome, duracao, preco });
+        if (!barbeariaId) {
+            throw { status: 403, message: 'Usuário não associado a uma barbearia.' };
+        }
+
+        const { nome, duracao, preco } = req.body;
+        let imagemUrl: string | undefined = undefined;
+
+        // --- LÓGICA DE PROCESSAMENTO COM SHARP (IGUAL À DA CRIAÇÃO) ---
+        // Se um novo arquivo foi enviado, processe-o.
+        if (req.file) {
+            // Gera um nome de arquivo único com a extensão .webp
+            const fileHash = crypto.randomBytes(16).toString('hex');
+            const fileName = `${fileHash}.webp`;
+
+            const uploadFolder = path.resolve(__dirname, '..', '..', 'uploads');
+            const filePath = path.join(uploadFolder, fileName);
+
+            // Processa a imagem do buffer: redimensiona, converte e salva
+            await sharp(req.file.buffer)
+                .resize({
+                    width: 500,
+                    height: 500,
+                    fit: 'cover',
+                })
+                .toFormat('webp', { quality: 80 })
+                .toFile(filePath);
+
+            // Guarda o nome do NOVO arquivo para ser passado ao serviço
+            imagemUrl = fileName;
+        }
+
+        // Chama o serviço com todos os dados, incluindo a possível nova imagem processada
+        const servicoAtualizado = await editarServicoService({
+            barbeariaId,
+            servicoId,
+            nome,
+            duracao,
+            preco,
+            imagemUrl // Passa o nome do NOVO arquivo para o serviço
+        });
 
         return res.status(200).json({
             message: 'Serviço atualizado com sucesso!',
             servico: servicoAtualizado,
         });
+
     } catch (error: any) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ error: 'Arquivo muito grande. O limite é de 5MB.' });
+        }
         console.error('Erro ao editar serviço:', error);
         return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
     }

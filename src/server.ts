@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { mainRouter } from './routes'; // Suas outras rotas
 import { PrismaClient, Role } from "@prisma/client";
 import { AuthRequest, checkRole } from "./middlewares/authMiddlewareBarber";
+import path from "path";
 
 const server = express();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Stripe SDK
@@ -281,6 +282,7 @@ server.post('/create-checkout-session', checkRole([Role.ADMIN]), async (req: Aut
     }
 });
 
+server.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 
 // Suas outras rotas do mainRouter

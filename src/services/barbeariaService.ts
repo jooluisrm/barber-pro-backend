@@ -2,6 +2,8 @@ import { Prisma, Role } from "@prisma/client";
 import { prisma } from "../libs/prisma";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import fs from 'fs/promises'; 
+import path from 'path';
 
 export const BuscarBarbeariasProximas = async (latUser: number, lonUser: number, raioKm: number) => {
     // Buscar todas as barbearias sem expor dados sensíveis
@@ -251,8 +253,8 @@ export const getAgendamentosPorBarbeiroService = async (barbeiroId: string) => {
     }
 
     const agendamentos = await prisma.agendamento.findMany({
-        where: { 
-            barbeiroId: barbeiroId 
+        where: {
+            barbeiroId: barbeiroId
         },
         include: {
             usuario: {
@@ -350,6 +352,7 @@ export const getHorariosPorDiaService = async (barbeiroId: string, diaSemana: st
 
     return horarios;
 };
+
 export const listarServicosDaBarbeariaService = async (barbeariaId: string) => {
     if (!barbeariaId) {
         throw { status: 400, message: 'ID da barbearia é obrigatório.' };
@@ -357,10 +360,22 @@ export const listarServicosDaBarbeariaService = async (barbeariaId: string) => {
 
     const servicos = await prisma.servico.findMany({
         where: { barbeariaId },
-        orderBy: { nome: 'asc' }, // ordenação opcional
+        orderBy: { nome: 'asc' },
     });
 
-    return servicos;
+    // --- NOVA LÓGICA AQUI ---
+    // Transforma a lista de serviços para adicionar a URL completa da imagem.
+    const servicosComUrlCompleta = servicos.map(servico => {
+        return {
+            ...servico, // Mantém todos os outros dados do serviço
+            // Altera o campo imagemUrl:
+            imagemUrl: servico.imagemUrl 
+                ? `${process.env.BACKEND_URL}/uploads/${servico.imagemUrl}` // Se tiver imagem, monta a URL completa
+                : null, // Se não tiver, mantém como nulo
+        };
+    });
+
+    return servicosComUrlCompleta;
 };
 
 interface CriarServicoProps {
@@ -406,28 +421,13 @@ interface EditarServicoProps {
     barbeariaId: string;
     servicoId: string;
     nome: string;
-    duracao: number;
-    preco?: number;
+    duracao: number | string; // Aceita string do form-data
+    preco?: number | string; // Aceita string do form-data
+    imagemUrl?: string;     // <-- Adiciona o novo campo de imagem opcional
 }
 
-export const editarServicoService = async ({ barbeariaId, servicoId, nome, duracao, preco }: EditarServicoProps) => {
-    if (!nome || typeof nome !== 'string') {
-        throw { status: 400, message: 'Nome do serviço é obrigatório e deve ser uma string.' };
-    }
-
-    if (duracao === undefined || isNaN(Number(duracao)) || Number(duracao) < 5) {
-        throw { status: 400, message: 'Duração do serviço é obrigatória e deve ser no mínimo 5 minutos.' };
-    }
-
-    let precoFormatado: number | null = null;
-    if (preco !== undefined) {
-        const precoNumber = Number(preco);
-        if (isNaN(precoNumber) || precoNumber < 0) {
-            throw { status: 400, message: 'Preço, se fornecido, deve ser um número positivo.' };
-        }
-        precoFormatado = precoNumber;
-    }
-
+export const editarServicoService = async ({ barbeariaId, servicoId, nome, duracao, preco, imagemUrl }: EditarServicoProps) => {
+    // 1. Busca o serviço para validar a existência e a posse
     const servicoExistente = await prisma.servico.findUnique({
         where: { id: servicoId },
     });
@@ -436,21 +436,45 @@ export const editarServicoService = async ({ barbeariaId, servicoId, nome, durac
         throw { status: 404, message: 'Serviço não encontrado para esta barbearia.' };
     }
 
-    const semAlteracoes =
+    // Formata o preço para comparação e para o banco de dados
+    const precoFormatado = (preco !== undefined && preco !== '') ? Number(preco) : servicoExistente.preco;
+    
+    // 2. Verifica se houve alguma alteração nos campos de texto
+    const semAlteracoesDeTexto =
         servicoExistente.nome === nome &&
         servicoExistente.duracao === Number(duracao) &&
         String(servicoExistente.preco || '') === String(precoFormatado || '');
 
-    if (semAlteracoes) {
+    // 3. Valida se algo foi alterado (texto OU imagem)
+    // Se os textos não mudaram E nenhuma nova imagem foi enviada, lança o erro.
+    if (semAlteracoesDeTexto && !imagemUrl) {
         throw { status: 400, message: 'Nenhuma alteração foi feita.' };
     }
 
+    // 4. Se uma nova imagem foi enviada, deleta a antiga (se existir)
+    if (imagemUrl && servicoExistente.imagemUrl) {
+        const nomeArquivoAntigo = servicoExistente.imagemUrl;
+        const uploadFolder = path.resolve(__dirname, '..', '..', 'uploads');
+        const caminhoArquivoAntigo = path.join(uploadFolder, nomeArquivoAntigo);
+
+        try {
+            await fs.unlink(caminhoArquivoAntigo);
+            console.log(`Imagem antiga deletada: ${caminhoArquivoAntigo}`);
+        } catch (error) {
+            console.error(`Falha ao deletar imagem antiga ${caminhoArquivoAntigo}:`, error);
+        }
+    }
+
+    // 5. Atualiza o serviço no banco de dados
     const servicoAtualizado = await prisma.servico.update({
         where: { id: servicoId },
         data: {
             nome,
             duracao: Number(duracao),
             preco: precoFormatado,
+            // Se uma nova imagemUrl foi passada, atualiza o campo.
+            // Se não, o spread operator usa o valor antigo do servicoExistente.
+            imagemUrl: imagemUrl || servicoExistente.imagemUrl,
         },
     });
 
@@ -474,9 +498,35 @@ export const deletarServicoService = async ({ barbeariaId, servicoId }: DeletarS
         throw { status: 404, message: 'Serviço não encontrado para esta barbearia.' };
     }
 
+    // --- LÓGICA DE DELEÇÃO DA IMAGEM ---
+
+    // 3. Antes de deletar do BD, guarda o nome do arquivo da imagem, se existir.
+    const nomeArquivoImagem = servicoExistente.imagemUrl;
+
+    // 4. Deleta o serviço do banco de dados.
     await prisma.servico.delete({
         where: { id: servicoId },
     });
+
+    // 5. Se havia um nome de arquivo, agora deleta o arquivo físico do servidor.
+    if (nomeArquivoImagem) {
+        try {
+            // Monta o caminho completo para a pasta de uploads
+            const uploadFolder = path.resolve(__dirname, '..', '..', 'uploads');
+            // Junta o caminho da pasta com o nome do arquivo
+            const caminhoArquivo = path.join(uploadFolder, nomeArquivoImagem);
+
+            // Deleta o arquivo do sistema
+            await fs.unlink(caminhoArquivo);
+
+            console.log(`Arquivo de imagem deletado com sucesso: ${caminhoArquivo}`);
+        } catch (error) {
+            // Se houver um erro ao deletar o arquivo (ex: ele já não existe),
+            // nós apenas registramos o erro no console, mas não paramos a execução.
+            // O mais importante (deletar do BD) já foi feito.
+            console.error(`Falha ao deletar o arquivo de imagem ${nomeArquivoImagem}:`, error);
+        }
+    }
 };
 
 export const listarProdutosService = async (barbeariaId: string) => {
@@ -941,7 +991,7 @@ export const atualizarUsuarioService = async ({ usuarioId, dadosUpdate, usuarioL
     if (isNomeIgual && isEmailIgual) {
         throw new Error('Nenhum dado novo para atualizar.');
     }
-    
+
     // 5. Construção do objeto de atualização
     const dadosParaAtualizar: { nome?: string; email?: string } = {};
     if (!isNomeIgual) dadosParaAtualizar.nome = novoNome;
@@ -972,7 +1022,7 @@ export const alterarSenhaService = async ({
     newPassword,
     usuarioLogado,
 }: AlterarSenhaParams): Promise<void> => {
-    
+
     // 1. Lógica de Autorização
     if (usuarioLogado.role !== Role.ADMIN && usuarioId !== usuarioLogado.id) {
         throw new Error('Acesso negado. Você só pode alterar sua própria senha.');
