@@ -122,6 +122,7 @@ model Servico {
   nome        String
   duracao     Int
   preco       Decimal?
+  imagemUrl   String?
   barbearia   Barbearia   @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   agendamentos Agendamento[]
 }
