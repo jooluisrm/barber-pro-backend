@@ -366,13 +366,14 @@ export const listarServicosDaBarbeariaService = async (barbeariaId: string) => {
 interface CriarServicoProps {
     barbeariaId: string;
     nome: string;
-    duracao: number;
-    preco?: number;
+    duracao: number | string; // Aceita string pois vem do form-data
+    preco?: number | string;  // Aceita string pois vem do form-data
+    imagemUrl?: string;       // <-- MUDANÇA: Novo campo opcional
 }
 
-export const criarServicoService = async ({ barbeariaId, nome, duracao, preco }: CriarServicoProps) => {
+export const criarServicoService = async ({ barbeariaId, nome, duracao, preco, imagemUrl }: CriarServicoProps) => {
     if (!nome || typeof nome !== 'string') {
-        throw { status: 400, message: 'Nome do serviço é obrigatório e deve ser uma string.' };
+        throw { status: 400, message: 'Nome do serviço é obrigatório.' };
     }
 
     if (duracao === undefined || isNaN(Number(duracao)) || Number(duracao) <= 0) {
@@ -380,7 +381,7 @@ export const criarServicoService = async ({ barbeariaId, nome, duracao, preco }:
     }
 
     let precoFormatado: number | null = null;
-    if (preco !== undefined) {
+    if (preco !== undefined && preco !== '') {
         const precoNumber = Number(preco);
         if (isNaN(precoNumber) || precoNumber < 0) {
             throw { status: 400, message: 'Preço, se fornecido, deve ser um número positivo.' };
@@ -392,8 +393,9 @@ export const criarServicoService = async ({ barbeariaId, nome, duracao, preco }:
         data: {
             barbeariaId,
             nome,
-            duracao: Number(duracao),
+            duracao: Number(duracao), // Garante que será salvo como número
             preco: precoFormatado,
+            imagemUrl: imagemUrl, // <-- MUDANÇA: Adiciona a URL da imagem
         },
     });
 

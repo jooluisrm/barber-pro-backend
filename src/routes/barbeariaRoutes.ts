@@ -54,7 +54,10 @@ import { Role } from '@prisma/client';
 import { AuthRequest, checkRole } from '../middlewares/authMiddlewareBarber';
 import { prisma } from '../libs/prisma';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
+import multerConfig from '../config/multer';
 
+const upload = multer(multerConfig);
 const router = express.Router();
 
 router.get('/proxima', obterBarbeariasProximas);
@@ -86,7 +89,12 @@ router.put('/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), upda
 router.get('/barbeiro/:barbeiroId/horarios/:diaSemana', checkRole([Role.ADMIN, Role.BARBEIRO]), getHorariosPorDiaController);
 
 router.get('/:barbeariaId/adm/servicos', checkRole([Role.ADMIN, Role.BARBEIRO]), listarServicosController);
-router.post('/:barbeariaId/servicos', checkRole([Role.ADMIN]), criarServicoController);
+router.post(
+    '/:barbeariaId/servicos', 
+    checkRole([Role.ADMIN]), 
+    upload.single('imagem'), // <-- MUDANÇA: 'imagem' é o nome do campo no formulário
+    criarServicoController
+);
 router.put('/:barbeariaId/servicos/:servicoId', checkRole([Role.ADMIN]), editarServicoController);
 router.delete('/:barbeariaId/servicos/:servicoId', checkRole([Role.ADMIN]), deletarServicoController);
 

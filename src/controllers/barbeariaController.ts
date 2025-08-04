@@ -719,12 +719,23 @@ export const listarServicosController = async (req: Request, res: Response) => {
     }
 };
 
-export const criarServicoController = async (req: Request, res: Response) => {
+export const criarServicoController = async (req: AuthRequest, res: Response) => {
     try {
-        const { barbeariaId } = req.params;
+        // --- SUGESTÃO DE SEGURANÇA (ALTAMENTE RECOMENDADO) ---
+        // Em vez de pegar o ID da URL, pegue do token do usuário logado.
+        // Isso impede que um admin de uma barbearia crie um serviço para outra.
+        const barbeariaId = req.user?.barbeariaId;
+        if (!barbeariaId) {
+            throw { status: 403, message: 'Usuário não associado a uma barbearia.' };
+        }
+        
         const { nome, duracao, preco } = req.body;
+        
+        // <-- MUDANÇA: Pega o nome do arquivo salvo pelo Multer
+        const imagemUrl = req.file ? req.file.filename : undefined;
 
-        const novoServico = await criarServicoService({ barbeariaId, nome, duracao, preco });
+        // <-- MUDANÇA: Passa o nome do arquivo para o serviço
+        const novoServico = await criarServicoService({ barbeariaId, nome, duracao, preco, imagemUrl });
 
         return res.status(201).json({
             message: 'Serviço criado com sucesso!',
