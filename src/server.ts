@@ -13,9 +13,20 @@ const server = express();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Stripe SDK
 
 // --- 1. CONFIGURAÇÕES GERAIS E DE SEGURANÇA ---
-server.use(helmet());
-server.use(cors());
+const corsOptions = {
+    origin: process.env.FRONTEND_URL, // Endereço do seu frontend Next.js
+    optionsSuccessStatus: 200 // Para compatibilidade com navegadores mais antigos e dispositivos
+};
+server.use(cors(corsOptions));
+server.use(
+  helmet({
+    // Ajusta a política para permitir que seu frontend carregue as imagens do backend.
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 server.disable('x-powered-by');
+
+server.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // --- 2. ROTA DE WEBHOOK (CASO ESPECIAL) ---
 // Esta rota é definida ANTES do parser de JSON e usa seu próprio parser "raw".
@@ -282,7 +293,7 @@ server.post('/create-checkout-session', checkRole([Role.ADMIN]), async (req: Aut
     }
 });
 
-server.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
 
 
 // Suas outras rotas do mainRouter
