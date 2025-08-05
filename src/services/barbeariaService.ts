@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import fs from 'fs/promises'; 
 import path from 'path';
+import { del } from "@vercel/blob";
 
 export const BuscarBarbeariasProximas = async (latUser: number, lonUser: number, raioKm: number) => {
     // Buscar todas as barbearias sem expor dados sensíveis
@@ -363,19 +364,8 @@ export const listarServicosDaBarbeariaService = async (barbeariaId: string) => {
         orderBy: { nome: 'asc' },
     });
 
-    // --- NOVA LÓGICA AQUI ---
-    // Transforma a lista de serviços para adicionar a URL completa da imagem.
-    const servicosComUrlCompleta = servicos.map(servico => {
-        return {
-            ...servico, // Mantém todos os outros dados do serviço
-            // Altera o campo imagemUrl:
-            imagemUrl: servico.imagemUrl 
-                ? `${process.env.BACKEND_URL}/uploads/${servico.imagemUrl}` // Se tiver imagem, monta a URL completa
-                : null, // Se não tiver, mantém como nulo
-        };
-    });
-
-    return servicosComUrlCompleta;
+    // Não precisamos mais montar a URL! Ela já vem pronta do banco.
+    return servicos;
 };
 
 interface CriarServicoProps {
@@ -451,17 +441,12 @@ export const editarServicoService = async ({ barbeariaId, servicoId, nome, durac
         throw { status: 400, message: 'Nenhuma alteração foi feita.' };
     }
 
-    // 4. Se uma nova imagem foi enviada, deleta a antiga (se existir)
+     // Se uma nova imagem foi enviada E uma antiga existia, deleta a antiga do Blob.
     if (imagemUrl && servicoExistente.imagemUrl) {
-        const nomeArquivoAntigo = servicoExistente.imagemUrl;
-        const uploadFolder = path.resolve(__dirname, '..', '..', 'uploads');
-        const caminhoArquivoAntigo = path.join(uploadFolder, nomeArquivoAntigo);
-
         try {
-            await fs.unlink(caminhoArquivoAntigo);
-            console.log(`Imagem antiga deletada: ${caminhoArquivoAntigo}`);
+            await del(servicoExistente.imagemUrl); // 👈 Deleta usando a URL completa
         } catch (error) {
-            console.error(`Falha ao deletar imagem antiga ${caminhoArquivoAntigo}:`, error);
+            console.error(`Falha ao deletar o blob antigo ${servicoExistente.imagemUrl}:`, error);
         }
     }
 
@@ -472,9 +457,8 @@ export const editarServicoService = async ({ barbeariaId, servicoId, nome, durac
             nome,
             duracao: Number(duracao),
             preco: precoFormatado,
-            // Se uma nova imagemUrl foi passada, atualiza o campo.
-            // Se não, o spread operator usa o valor antigo do servicoExistente.
-            imagemUrl: imagemUrl || servicoExistente.imagemUrl,
+            // Se imagemUrl for undefined, mantém a URL antiga. Se for uma string, usa a nova.
+            imagemUrl: imagemUrl === undefined ? servicoExistente.imagemUrl : imagemUrl,
         },
     });
 
@@ -487,44 +471,22 @@ interface DeletarServicoProps {
 }
 
 export const deletarServicoService = async ({ barbeariaId, servicoId }: DeletarServicoProps) => {
-    const servicoExistente = await prisma.servico.findFirst({
-        where: {
-            id: servicoId,
-            barbeariaId,
-        },
-    });
+    const servicoExistente = await prisma.servico.findFirst({ where: { id: servicoId, barbeariaId } });
 
     if (!servicoExistente) {
-        throw { status: 404, message: 'Serviço não encontrado para esta barbearia.' };
+        throw { status: 404, message: 'Serviço não encontrado.' };
     }
 
-    // --- LÓGICA DE DELEÇÃO DA IMAGEM ---
+    const urlDaImagem = servicoExistente.imagemUrl;
 
-    // 3. Antes de deletar do BD, guarda o nome do arquivo da imagem, se existir.
-    const nomeArquivoImagem = servicoExistente.imagemUrl;
+    await prisma.servico.delete({ where: { id: servicoId } });
 
-    // 4. Deleta o serviço do banco de dados.
-    await prisma.servico.delete({
-        where: { id: servicoId },
-    });
-
-    // 5. Se havia um nome de arquivo, agora deleta o arquivo físico do servidor.
-    if (nomeArquivoImagem) {
+    // Se havia uma URL, deleta o blob correspondente.
+    if (urlDaImagem) {
         try {
-            // Monta o caminho completo para a pasta de uploads
-            const uploadFolder = path.resolve(__dirname, '..', '..', 'uploads');
-            // Junta o caminho da pasta com o nome do arquivo
-            const caminhoArquivo = path.join(uploadFolder, nomeArquivoImagem);
-
-            // Deleta o arquivo do sistema
-            await fs.unlink(caminhoArquivo);
-
-            console.log(`Arquivo de imagem deletado com sucesso: ${caminhoArquivo}`);
+            await del(urlDaImagem); // 👈 Deleta usando a URL completa
         } catch (error) {
-            // Se houver um erro ao deletar o arquivo (ex: ele já não existe),
-            // nós apenas registramos o erro no console, mas não paramos a execução.
-            // O mais importante (deletar do BD) já foi feito.
-            console.error(`Falha ao deletar o arquivo de imagem ${nomeArquivoImagem}:`, error);
+            console.error(`Falha ao deletar o blob ${urlDaImagem}:`, error);
         }
     }
 };

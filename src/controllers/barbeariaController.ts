@@ -8,6 +8,7 @@ import { AuthRequest } from '../middlewares/authMiddlewareBarber';
 import sharp from 'sharp'; // <-- Importar o sharp
 import path from 'path';   // <-- Importar o path
 import crypto from 'crypto';
+import { put } from '@vercel/blob';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -730,27 +731,33 @@ export const criarServicoController = async (req: AuthRequest, res: Response) =>
         }
         
         const { nome, duracao, preco } = req.body;
-        let imagemUrl: string | undefined = undefined; // Variável para o nome final do arquivo
+        let imagemUrl: string | undefined = undefined;
 
-        // 👇 LÓGICA DE PROCESSAMENTO COM O SHARP 👇
         if (req.file) {
-            // Gera um nome de arquivo único, mas com a extensão .webp
+            // 👇 LÓGICA DE UPLOAD PARA O VERCEL BLOB 👇
+
+            // 2. Gera um nome de arquivo único para o Blob
             const fileHash = crypto.randomBytes(16).toString('hex');
             const fileName = `${fileHash}.webp`;
 
-            const uploadFolder = path.resolve(__dirname, '..', '..', 'uploads');
-            const filePath = path.join(uploadFolder, fileName);
-
-            await sharp(req.file.buffer) // Pega o buffer da imagem em memória
+            // 3. Processa a imagem com o Sharp, mas gera um buffer em vez de um arquivo
+            const processedImageBuffer = await sharp(req.file.buffer)
                 .resize({ 
-                    width: 500, // Largura máxima de 500px
-                    height: 500, // Altura máxima de 500px
-                    fit: 'cover', // 'cover' recorta para preencher as dimensões
+                    width: 500,
+                    height: 500,
+                    fit: 'cover',
                 })
-                .toFormat('webp', { quality: 80 }) // Converte para o formato WebP com 80% de qualidade
-                .toFile(filePath); // Salva o arquivo processado no disco
+                .toFormat('webp', { quality: 80 })
+                .toBuffer(); // Gera o resultado em memória
 
-            imagemUrl = fileName; // Guarda o nome do novo arquivo para salvar no BD
+            // 4. Faz o upload do buffer processado para o Vercel Blob
+            const blob = await put(fileName, processedImageBuffer, {
+                access: 'public', // Torna o arquivo publicamente acessível
+                contentType: 'image/webp', // Informa o tipo do arquivo
+            });
+
+            // 5. A URL a ser salva no banco agora é a URL completa retornada pelo Vercel Blob
+            imagemUrl = blob.url;
         }
 
         const novoServico = await criarServicoService({ barbeariaId, nome, duracao, preco, imagemUrl });
@@ -760,12 +767,11 @@ export const criarServicoController = async (req: AuthRequest, res: Response) =>
             servico: novoServico,
         });
     } catch (error: any) {
-        // Tratando o erro de arquivo muito grande do Multer
         if (error.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({ error: 'Arquivo muito grande. O limite é de 5MB.' });
         }
         console.error('Erro ao criar serviço:', error);
-        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };
 
@@ -773,7 +779,6 @@ export const editarServicoController = async (req: AuthRequest, res: Response) =
     try {
         const barbeariaId = req.user?.barbeariaId;
         const { servicoId } = req.params;
-
         if (!barbeariaId) {
             throw { status: 403, message: 'Usuário não associado a uma barbearia.' };
         }
@@ -781,38 +786,31 @@ export const editarServicoController = async (req: AuthRequest, res: Response) =
         const { nome, duracao, preco } = req.body;
         let imagemUrl: string | undefined = undefined;
 
-        // --- LÓGICA DE PROCESSAMENTO COM SHARP (IGUAL À DA CRIAÇÃO) ---
-        // Se um novo arquivo foi enviado, processe-o.
         if (req.file) {
-            // Gera um nome de arquivo único com a extensão .webp
+            // Lógica de processamento e upload para o Vercel Blob (idêntica à da criação)
             const fileHash = crypto.randomBytes(16).toString('hex');
             const fileName = `${fileHash}.webp`;
 
-            const uploadFolder = path.resolve(__dirname, '..', '..', 'uploads');
-            const filePath = path.join(uploadFolder, fileName);
-
-            // Processa a imagem do buffer: redimensiona, converte e salva
-            await sharp(req.file.buffer)
-                .resize({
-                    width: 500,
-                    height: 500,
-                    fit: 'cover',
-                })
+            const processedImageBuffer = await sharp(req.file.buffer)
+                .resize({ width: 500, height: 500, fit: 'cover' })
                 .toFormat('webp', { quality: 80 })
-                .toFile(filePath);
-
-            // Guarda o nome do NOVO arquivo para ser passado ao serviço
-            imagemUrl = fileName;
+                .toBuffer();
+            
+            const blob = await put(fileName, processedImageBuffer, {
+                access: 'public',
+                contentType: 'image/webp',
+            });
+            
+            imagemUrl = blob.url; // A URL da NOVA imagem
         }
 
-        // Chama o serviço com todos os dados, incluindo a possível nova imagem processada
         const servicoAtualizado = await editarServicoService({
             barbeariaId,
             servicoId,
             nome,
             duracao,
             preco,
-            imagemUrl // Passa o nome do NOVO arquivo para o serviço
+            imagemUrl // Passa a URL da nova imagem (ou undefined se nenhuma foi enviada)
         });
 
         return res.status(200).json({
@@ -825,7 +823,7 @@ export const editarServicoController = async (req: AuthRequest, res: Response) =
             return res.status(400).json({ error: 'Arquivo muito grande. O limite é de 5MB.' });
         }
         console.error('Erro ao editar serviço:', error);
-        return res.status(error.status || 500).json({ error: error.message || 'Erro interno do servidor.' });
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };
 

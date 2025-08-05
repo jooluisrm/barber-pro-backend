@@ -1,7 +1,7 @@
 // src/server.ts - VERSÃO CORRIGIDA
 import { prisma } from "./libs/prisma";
 import express from 'express';
-import 'dotenv/config'; // Garante que as variáveis de ambiente sejam carregadas primeiro
+//import 'dotenv/config'; // Garante que as variáveis de ambiente sejam carregadas primeiro
 import cors from 'cors';
 import helmet from 'helmet';
 import { mainRouter } from './routes'; // Suas outras rotas
