@@ -13,8 +13,10 @@ const server = express();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY); // Stripe SDK
 
 // --- 1. CONFIGURAÇÕES GERAIS E DE SEGURANÇA ---
+const allowedOrigins = process.env.FRONTEND_URLS?.split(',') || [];
+
 const corsOptions = {
-    origin: process.env.FRONTEND_URL, // Endereço do seu frontend Next.js
+    origin: allowedOrigins, // Endereço do seu frontend Next.js
     optionsSuccessStatus: 200 // Para compatibilidade com navegadores mais antigos e dispositivos
 };
 server.use(cors(corsOptions));
