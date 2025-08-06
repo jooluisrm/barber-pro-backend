@@ -286,7 +286,7 @@ export const updateStatusAgendamentoService = async (agendamentoId: string, stat
 };
 
 export const deleteBarbeiroService = async (barbeiroId: string) => {
-    // Verifica se há agendamentos confirmados
+    // 2. Validação de agendamentos (continua igual, é uma ótima regra de negócio)
     const agendamentosPendentes = await prisma.agendamento.findFirst({
         where: { barbeiroId, status: "Confirmado" },
     });
@@ -295,30 +295,51 @@ export const deleteBarbeiroService = async (barbeiroId: string) => {
         throw { status: 400, message: "Este barbeiro possui agendamentos confirmados e não pode ser excluído." };
     }
 
-    // Verifica se o barbeiro existe
+    // 3. Encontrar o barbeiro E incluir o usuário do sistema para pegar a URL da foto e o ID de login
     const barbeiroExiste = await prisma.barbeiro.findUnique({
         where: { id: barbeiroId },
+        include: {
+            usuarioSistema: true // Inclui o registro de login relacionado
+        }
     });
 
     if (!barbeiroExiste) {
         throw { status: 404, message: "Barbeiro não encontrado." };
     }
 
-    // Deleta horários de trabalho (se houver)
-    const horariosExistem = await prisma.horarioTrabalho.findFirst({
-        where: { barbeiroId },
-    });
+    // 4. Guardar a URL da imagem e o ID do usuário do sistema
+    const fotoParaDeletar = barbeiroExiste.fotoPerfil;
+    const usuarioSistemaId = barbeiroExiste.usuarioSistema.id;
 
-    if (horariosExistem) {
-        await prisma.horarioTrabalho.deleteMany({
+    // 5. Usar uma transação para garantir a integridade dos dados
+    await prisma.$transaction(async (tx) => {
+        // Deleta os horários de trabalho do barbeiro
+        await tx.horarioTrabalho.deleteMany({
             where: { barbeiroId },
         });
-    }
 
-    // Deleta o barbeiro
-    await prisma.barbeiro.delete({
-        where: { id: barbeiroId },
+        // Deleta o perfil do barbeiro
+        // A cascade delete cuidaria disso, mas ser explícito na transação é seguro.
+        await tx.barbeiro.delete({
+            where: { id: barbeiroId },
+        });
+        
+        // Deleta a conta de login do barbeiro
+        await tx.usuarioSistema.delete({
+            where: { id: usuarioSistemaId },
+        });
     });
+
+    // 6. Após o sucesso da transação, deletar a imagem do Blob
+    if (fotoParaDeletar) {
+        try {
+            await del(fotoParaDeletar); // Deleta usando a URL completa
+            console.log(`Blob da foto de perfil deletado: ${fotoParaDeletar}`);
+        } catch (error) {
+            // Loga o erro, mas não impede a resposta de sucesso, pois o principal (BD) foi feito.
+            console.error(`Falha ao deletar o blob da foto de perfil ${fotoParaDeletar}:`, error);
+        }
+    }
 
     return "Barbeiro deletado com sucesso!";
 };
