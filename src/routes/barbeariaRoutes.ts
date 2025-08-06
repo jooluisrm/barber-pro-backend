@@ -54,8 +54,8 @@ import { Role } from '@prisma/client';
 import { AuthRequest, checkRole } from '../middlewares/authMiddlewareBarber';
 import { prisma } from '../libs/prisma';
 import bcrypt from 'bcryptjs';
-import multer from 'multer';  
-import multerConfig from '../config/multer'; 
+import multer from 'multer';
+import multerConfig from '../config/multer';
 
 
 const upload = multer(multerConfig);
@@ -84,14 +84,9 @@ router.get('/agendamentos/:barbeariaId', getAgendamentosController);
 router.put('/agendamento/status/:agendamentoId', checkRole([Role.ADMIN, Role.BARBEIRO]), checkSubscription, updateStatusAgendamentoController);
 router.post('/agendamentos/visitante', checkRole([Role.ADMIN, Role.BARBEIRO]), createAgendamentoVisitanteController);
 
-router.post(
-    '/barbeiro/register', 
-    checkRole([Role.ADMIN]), 
-    upload.single('fotoPerfil'), // <-- ADICIONADO AQUI
-    registerBarbeiroController
-);
+router.post('/barbeiro/register', checkRole([Role.ADMIN]), upload.single('fotoPerfil'), registerBarbeiroController);
 router.delete('/barbeiro/:barbeiroId', checkRole([Role.ADMIN]), deleteBarbeiroController);
-router.put('/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), updateBarbeiroController);
+router.put('/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), upload.single('fotoPerfil'), updateBarbeiroController);
 router.get('/barbeiro/:barbeiroId/horarios/:diaSemana', checkRole([Role.ADMIN, Role.BARBEIRO]), getHorariosPorDiaController);
 
 router.get('/:barbeariaId/adm/servicos', checkRole([Role.ADMIN, Role.BARBEIRO]), listarServicosController);

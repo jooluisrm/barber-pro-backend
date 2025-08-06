@@ -8,7 +8,7 @@ import { AuthRequest } from '../middlewares/authMiddlewareBarber';
 import sharp from 'sharp'; // <-- Importar o sharp
 import path from 'path';   // <-- Importar o path
 import crypto from 'crypto';
-import { put } from '@vercel/blob';
+import { del, put } from '@vercel/blob';
 
 export const obterBarbeariasProximas = async (req: Request, res: Response) => {
     try {
@@ -634,61 +634,89 @@ export const deleteBarbeiroController = async (req: Request, res: Response) => {
 };
 
 export const updateBarbeiroController = async (req: AuthRequest, res: Response) => {
-    // 1. ID do barbeiro a ser atualizado (da URL) e dados do utilizador logado (do token)
     const { barbeiroId } = req.params;
-    const usuarioLogado = req.user!; // Sabemos que existe graças ao middleware
-
-    // 2. Dados para atualização (do corpo da requisição)
+    const usuarioLogado = req.user!;
     const { nome, telefone, email } = req.body;
-
-    if (!nome || !telefone || !email) {
-        return res.status(400).json({ error: "Nome, telefone e email são obrigatórios." });
-    }
+    let fotoPerfilUrl: string | undefined = undefined;
 
     try {
-        // 3. Buscar o perfil do barbeiro que será editado, incluindo o ID da sua conta de login
+        // --- 1. PROCESSAMENTO DA NOVA IMAGEM (SE ENVIADA) ---
+        if (req.file) {
+            const fileHash = crypto.randomBytes(16).toString('hex');
+            const fileName = `${fileHash}.webp`;
+
+            const processedImageBuffer = await sharp(req.file.buffer)
+                .resize({ width: 200, height: 200, fit: 'cover' })
+                .toFormat('webp', { quality: 80 })
+                .toBuffer();
+            
+            const blob = await put(fileName, processedImageBuffer, {
+                access: 'public',
+                contentType: 'image/webp',
+            });
+            
+            fotoPerfilUrl = blob.url; // Guarda a URL da NOVA imagem
+        }
+
+        // --- 2. BUSCAR DADOS ATUAIS E VERIFICAR PERMISSÕES ---
         const barbeiroParaAtualizar = await prisma.barbeiro.findUnique({
             where: { id: barbeiroId },
-            select: { usuarioSistemaId: true, barbeariaId: true } // Pegamos o ID da conta de login e da barbearia
         });
 
         if (!barbeiroParaAtualizar) {
             return res.status(404).json({ error: "Perfil de barbeiro não encontrado." });
         }
 
-        // 4. VERIFICAÇÃO DE PERMISSÃO (Regra de Negócio Crucial)
-        // Se o utilizador logado é um BARBEIRO, ele só pode editar a si mesmo.
+        // Sua lógica de permissão (ótima!) continua aqui
         if (usuarioLogado.role === 'BARBEIRO' && usuarioLogado.id !== barbeiroParaAtualizar.usuarioSistemaId) {
             return res.status(403).json({ error: "Acesso proibido. Você só pode editar seu próprio perfil." });
         }
-        // Se o utilizador logado é um ADMIN, ele só pode editar barbeiros da sua própria barbearia.
         if (usuarioLogado.role === 'ADMIN' && usuarioLogado.barbeariaId !== barbeiroParaAtualizar.barbeariaId) {
             return res.status(403).json({ error: "Acesso proibido. Este barbeiro não pertence à sua barbearia." });
         }
 
-        // 5. Verificar se o novo email já está em uso por OUTRO utilizador
-        const emailEmUso = await prisma.usuarioSistema.findFirst({
-            where: {
-                email: email,
-                id: { not: barbeiroParaAtualizar.usuarioSistemaId } // Exclui o próprio utilizador da busca
+        // --- 3. DELETAR IMAGEM ANTIGA DO BLOB (SE UMA NOVA FOI ENVIADA) ---
+        if (fotoPerfilUrl && barbeiroParaAtualizar.fotoPerfil) {
+            try {
+                await del(barbeiroParaAtualizar.fotoPerfil);
+            } catch (error) {
+                console.error(`Falha ao deletar o blob antigo ${barbeiroParaAtualizar.fotoPerfil}:`, error);
             }
-        });
-
-        if (emailEmUso) {
-            return res.status(409).json({ error: "Este e-mail já está em uso por outro utilizador." });
         }
 
-        // 6. Executar as duas atualizações dentro de uma transação
+        // --- 4. PREPARAR DADOS PARA ATUALIZAÇÃO (SUPORTE A MUDANÇAS PARCIAIS) ---
+        const dataUsuario: any = {};
+        const dataBarbeiro: any = {};
+
+        if (nome) { dataUsuario.nome = nome; dataBarbeiro.nome = nome; }
+        if (email) { dataUsuario.email = email; }
+        if (telefone) { dataBarbeiro.telefone = telefone; }
+        if (fotoPerfilUrl) { dataUsuario.fotoPerfil = fotoPerfilUrl; dataBarbeiro.fotoPerfil = fotoPerfilUrl; }
+        
+        // Verifica se há algo para atualizar
+        if (Object.keys(dataUsuario).length === 0 && Object.keys(dataBarbeiro).length === 0) {
+            return res.status(400).json({ error: "Nenhuma alteração foi fornecida." });
+        }
+        
+        // --- 5. VERIFICAR CONFLITO DE E-MAIL (SE O E-MAIL FOI ALTERADO) ---
+        if (email) {
+            const emailEmUso = await prisma.usuarioSistema.findFirst({
+                where: { email: email, id: { not: barbeiroParaAtualizar.usuarioSistemaId } }
+            });
+            if (emailEmUso) {
+                return res.status(409).json({ error: "Este e-mail já está em uso por outro utilizador." });
+            }
+        }
+
+        // --- 6. EXECUTAR ATUALIZAÇÃO EM TRANSAÇÃO ---
         const [usuarioAtualizado, perfilAtualizado] = await prisma.$transaction([
-            // Atualiza a conta de login
             prisma.usuarioSistema.update({
                 where: { id: barbeiroParaAtualizar.usuarioSistemaId },
-                data: { nome, email } // Atualiza nome e email no sistema de login
+                data: dataUsuario
             }),
-            // Atualiza o perfil profissional
             prisma.barbeiro.update({
                 where: { id: barbeiroId },
-                data: { nome, telefone } // Atualiza nome e telefone no perfil
+                data: dataBarbeiro
             })
         ]);
         
@@ -696,10 +724,7 @@ export const updateBarbeiroController = async (req: AuthRequest, res: Response) 
 
         return res.status(200).json({
             message: "Barbeiro atualizado com sucesso!",
-            barbeiro: {
-                ...perfilAtualizado,
-                usuario: usuarioSemSenha,
-            }
+            barbeiro: { ...perfilAtualizado, usuario: usuarioSemSenha }
         });
 
     } catch (error: any) {
