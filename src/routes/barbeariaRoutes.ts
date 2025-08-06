@@ -84,7 +84,12 @@ router.get('/agendamentos/:barbeariaId', getAgendamentosController);
 router.put('/agendamento/status/:agendamentoId', checkRole([Role.ADMIN, Role.BARBEIRO]), checkSubscription, updateStatusAgendamentoController);
 router.post('/agendamentos/visitante', checkRole([Role.ADMIN, Role.BARBEIRO]), createAgendamentoVisitanteController);
 
-router.post('/barbeiro/register', checkRole([Role.ADMIN]), registerBarbeiroController);
+router.post(
+    '/barbeiro/register', 
+    checkRole([Role.ADMIN]), 
+    upload.single('fotoPerfil'), // <-- ADICIONADO AQUI
+    registerBarbeiroController
+);
 router.delete('/barbeiro/:barbeiroId', checkRole([Role.ADMIN]), deleteBarbeiroController);
 router.put('/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), updateBarbeiroController);
 router.get('/barbeiro/:barbeiroId/horarios/:diaSemana', checkRole([Role.ADMIN, Role.BARBEIRO]), getHorariosPorDiaController);

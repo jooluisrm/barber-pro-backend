@@ -535,62 +535,72 @@ export const updateStatusAgendamentoController = async (req: Request, res: Respo
 };
 
 export const registerBarbeiroController = async (req: AuthRequest, res: Response) => {
-    // 1. Pegar o ID da barbearia do ADMIN que está logado (do token!)
-    const { barbeariaId } = req.user!; // O '!' diz ao TS: "confie, o middleware garantiu que `user` existe"
+    const { barbeariaId } = req.user!;
 
-    // 2. Pegar os dados do novo barbeiro do corpo da requisição
-    const { nome, email, senha, telefone, fotoPerfil } = req.body;
+    // Os dados de texto agora vêm do form-data
+    const { nome, email, senha, telefone } = req.body;
+    
+    // Variável para guardar a URL da imagem do Vercel Blob
+    let fotoPerfilUrl: string | undefined = undefined;
 
     if (!nome || !email || !senha || !telefone) {
         return res.status(400).json({ error: 'Nome, email, senha e telefone são obrigatórios.' });
     }
 
     try {
-        // 3. Verificar se o email já está em uso no sistema de login
-        const emailExistente = await prisma.usuarioSistema.findUnique({
-            where: { email },
-        });
+        // --- LÓGICA DE UPLOAD DA IMAGEM ---
+        if (req.file) {
+            const fileHash = crypto.randomBytes(16).toString('hex');
+            const fileName = `${fileHash}.webp`;
 
+            // Redimensiona para um tamanho ideal para perfil (ex: 200x200)
+            const processedImageBuffer = await sharp(req.file.buffer)
+                .resize({ width: 200, height: 200, fit: 'cover' })
+                .toFormat('webp', { quality: 80 })
+                .toBuffer();
+
+            const blob = await put(fileName, processedImageBuffer, {
+                access: 'public',
+                contentType: 'image/webp',
+            });
+            
+            // Guarda a URL completa retornada pelo Blob
+            fotoPerfilUrl = blob.url;
+        }
+        // --- FIM DA LÓGICA DE UPLOAD ---
+
+        const emailExistente = await prisma.usuarioSistema.findUnique({ where: { email } });
         if (emailExistente) {
             return res.status(409).json({ error: 'Este e-mail já está em uso no sistema.' });
         }
 
-        // 4. Criptografar a senha do novo barbeiro
         const senhaHash = await bcrypt.hash(senha, 10);
 
-        // 5. Usar uma transação para criar o UsuarioSistema e o Perfil de Barbeiro
         const novoBarbeiroCompleto = await prisma.$transaction(async (tx) => {
-            // Primeiro, cria a conta de login com a role 'BARBEIRO'
             const novoUsuario = await tx.usuarioSistema.create({
                 data: {
                     nome,
                     email,
                     senha: senhaHash,
-                    fotoPerfil,
-                    role: Role.BARBEIRO, // <-- A role é definida aqui!
-                    barbeariaId: barbeariaId, // <-- O ID da barbearia do admin logado
+                    fotoPerfil: fotoPerfilUrl, // <-- USA A URL DO BLOB
+                    role: Role.BARBEIRO,
+                    barbeariaId: barbeariaId,
                 },
             });
 
-            // Em seguida, cria o perfil do barbeiro e o conecta à conta de login recém-criada
             const novoPerfilBarbeiro = await tx.barbeiro.create({
                 data: {
                     nome,
                     telefone,
-                    fotoPerfil,
-                    barbearia: {
-                        connect: { id: barbeariaId }
-                    },
-                    usuarioSistema: { // <-- A LIGAÇÃO MÁGICA!
-                        connect: { id: novoUsuario.id }
-                    }
+                    fotoPerfil: fotoPerfilUrl, // <-- USA A URL DO BLOB
+                    barbearia: { connect: { id: barbeariaId } },
+                    usuarioSistema: { connect: { id: novoUsuario.id } }
                 }
             });
 
             return { usuario: novoUsuario, perfil: novoPerfilBarbeiro };
         });
 
-        // Retira a senha da resposta por segurança
         const { senha: _, ...usuarioSemSenha } = novoBarbeiroCompleto.usuario;
 
         return res.status(201).json({
@@ -603,7 +613,6 @@ export const registerBarbeiroController = async (req: AuthRequest, res: Response
 
     } catch (error: any) {
         console.error('Erro ao registrar barbeiro:', error);
-        // O P2002 aqui seria redundante pois já verificamos antes, mas é uma boa prática mantê-lo
         if (error.code === 'P2002') {
             return res.status(409).json({ error: 'E-mail já cadastrado.' });
         }
