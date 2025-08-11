@@ -1162,3 +1162,95 @@ export const cancelarAgendamentoService = async (agendamentoId: string, barbeari
         throw error;
     }
 };
+
+interface UpdatePictureProps {
+    userId: string;
+    userRole: Role;
+    newImageUrl: string;
+}
+
+export const updateProfilePictureService = async ({ userId, userRole, newImageUrl }: UpdatePictureProps) => {
+    // 1. Buscar o usuário atual para pegar a URL da foto antiga
+    const usuarioAtual = await prisma.usuarioSistema.findUnique({
+        where: { id: userId },
+        select: { fotoPerfil: true }
+    });
+
+    if (!usuarioAtual) {
+        throw new Error('Usuário não encontrado.');
+    }
+
+    const oldImageUrl = usuarioAtual.fotoPerfil;
+
+    // 2. Iniciar uma transação para atualizar o(s) registro(s) no banco
+    await prisma.$transaction(async (tx) => {
+        // Atualiza a tabela principal de login
+        await tx.usuarioSistema.update({
+            where: { id: userId },
+            data: { fotoPerfil: newImageUrl },
+        });
+
+        // Se o usuário é um barbeiro, atualiza também o perfil de barbeiro
+        if (userRole === Role.BARBEIRO) {
+            await tx.barbeiro.update({
+                where: { usuarioSistemaId: userId }, // Encontra o perfil pela ligação
+                data: { fotoPerfil: newImageUrl },
+            });
+        }
+    });
+
+    // 3. Após a transação bem-sucedida, deletar a imagem antiga do Vercel Blob
+    if (oldImageUrl) {
+        try {
+            await del(oldImageUrl);
+        } catch (error) {
+            console.error(`Falha ao deletar o blob antigo ${oldImageUrl}:`, error);
+        }
+    }
+};
+
+interface DeletePictureProps {
+    userId: string;
+    userRole: Role;
+}
+
+export const deleteProfilePictureService = async ({ userId, userRole }: DeletePictureProps) => {
+    // 1. Buscar o usuário atual para pegar a URL da foto
+    const usuarioAtual = await prisma.usuarioSistema.findUnique({
+        where: { id: userId },
+        select: { fotoPerfil: true }
+    });
+
+    // Se o usuário não for encontrado ou já não tiver foto, não há nada a fazer.
+    if (!usuarioAtual || !usuarioAtual.fotoPerfil) {
+        // Retornamos sucesso, pois o estado final (sem foto) foi alcançado.
+        return;
+    }
+
+    const imageUrlToDelete = usuarioAtual.fotoPerfil;
+
+    // 2. Iniciar uma transação para remover a URL do banco de dados
+    await prisma.$transaction(async (tx) => {
+        // Define fotoPerfil como null na tabela principal
+        await tx.usuarioSistema.update({
+            where: { id: userId },
+            data: { fotoPerfil: null },
+        });
+
+        // Se o usuário é um barbeiro, define como null no perfil também
+        if (userRole === Role.BARBEIRO) {
+            await tx.barbeiro.update({
+                where: { usuarioSistemaId: userId },
+                data: { fotoPerfil: null },
+            });
+        }
+    });
+
+    // 3. Após a transação bem-sucedida, deletar a imagem do Vercel Blob
+    try {
+        await del(imageUrlToDelete);
+    } catch (error) {
+        // Loga o erro, mas não falha a operação, pois o mais importante (BD) foi feito.
+        console.error(`Falha ao deletar o blob antigo ${imageUrlToDelete}:`, error);
+    }
+};

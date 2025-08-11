@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { alterarSenhaService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { alterarSenhaService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
@@ -1424,5 +1424,66 @@ export const cancelarAgendamentoController = async (req: AuthRequest, res: Respo
         
         console.error('Erro ao cancelar agendamento:', error);
         return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
+    }
+};
+
+export const updateProfilePictureController = async (req: AuthRequest, res: Response) => {
+    try {
+        const usuarioLogado = req.user!; // ID e role do usuário logado vêm do token
+
+        // 1. Validar se um arquivo foi enviado
+        if (!req.file) {
+            return res.status(400).json({ error: 'Nenhum arquivo de imagem foi enviado.' });
+        }
+
+        // 2. Processar a imagem com Sharp e fazer upload para o Vercel Blob
+        const fileHash = crypto.randomBytes(16).toString('hex');
+        const fileName = `${fileHash}.webp`;
+
+        const processedImageBuffer = await sharp(req.file.buffer)
+            .resize({ width: 200, height: 200, fit: 'cover' })
+            .toFormat('webp', { quality: 80 })
+            .toBuffer();
+        
+        const blob = await put(fileName, processedImageBuffer, {
+            access: 'public',
+            contentType: 'image/webp',
+        });
+        
+        const newImageUrl = blob.url;
+
+        // 3. Chamar o serviço para atualizar o banco de dados
+        await updateProfilePictureService({ 
+            userId: usuarioLogado.id, 
+            userRole: usuarioLogado.role as Role, 
+            newImageUrl 
+        });
+
+        return res.status(200).json({ 
+            message: "Foto de perfil atualizada com sucesso!",
+            fotoPerfilUrl: newImageUrl
+        });
+
+    } catch (error: any) {
+        console.error("Erro ao atualizar foto de perfil:", error);
+        return res.status(500).json({ error: "Erro interno do servidor." });
+    }
+};
+
+export const deleteProfilePictureController = async (req: AuthRequest, res: Response) => {
+    try {
+        const usuarioLogado = req.user!; // ID e role do usuário logado vêm do token
+
+        // Chama o serviço para executar a lógica de exclusão
+        await deleteProfilePictureService({ 
+            userId: usuarioLogado.id, 
+            userRole: usuarioLogado.role as Role 
+        });
+
+        return res.status(200).json({ message: "Foto de perfil removida com sucesso!" });
+
+    } catch (error: any) {
+        console.error("Erro ao remover foto de perfil:", error);
+        return res.status(500).json({ error: "Erro interno do servidor." });
     }
 };

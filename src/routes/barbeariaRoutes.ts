@@ -47,6 +47,8 @@ import {
   listarAgendamentosPendentesController,
   concluirAgendamentoController,
   cancelarAgendamentoController,
+  updateProfilePictureController,
+  deleteProfilePictureController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -115,6 +117,8 @@ router.delete('/:barbeariaId/horario-funcionamento/:horarioId', checkRole([Role.
 
 router.patch('/usuarios-sistema/:usuarioId', checkRole([Role.ADMIN, Role.BARBEIRO]), atualizarUsuarioController);
 router.patch('/usuarios-sistema/:usuarioId/alterar-senha', checkRole([Role.ADMIN, Role.BARBEIRO]), alterarSenhaController);
+router.post('/usuarios-sistema/picture', checkRole([Role.ADMIN, Role.BARBEIRO]), upload.single('fotoPerfil'), updateProfilePictureController);
+router.delete('/usuarios-sistema/picture', checkRole([Role.ADMIN, Role.BARBEIRO]), deleteProfilePictureController);
 
 router.get('/agendamentos/pendente/:barbeariaId', checkRole([Role.ADMIN, Role.BARBEIRO]), listarAgendamentosPendentesController);
 router.patch('/:barbeariaId/agendamentos/:agendamentoId/concluir', checkRole([Role.ADMIN, Role.BARBEIRO]), concluirAgendamentoController);
