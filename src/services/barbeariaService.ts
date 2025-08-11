@@ -556,10 +556,11 @@ export const criarProdutoService = async ({
 interface EditarProdutoDTO {
     barbeariaId: string;
     produtoId: string;
-    nome: string;
+    nome?: string;
     descricao?: string;
-    tipo: string;
-    preco: number;
+    tipo?: string;
+    preco?: number;
+    imagemUrl?: string;
 }
 
 export const editarProdutoService = async ({
@@ -569,33 +570,43 @@ export const editarProdutoService = async ({
     descricao,
     tipo,
     preco,
+    imagemUrl,
 }: EditarProdutoDTO) => {
+    // 1. Busca o produto para validar a existência e a posse
     const produtoExistente = await prisma.produto.findUnique({
         where: { id: produtoId },
     });
 
     if (!produtoExistente || produtoExistente.barbeariaId !== barbeariaId) {
-        return null;
+        throw new Error('Produto não encontrado para esta barbearia.');
     }
 
-    const dadosIguais =
-        produtoExistente.nome === nome &&
-        produtoExistente.descricao === descricao &&
-        produtoExistente.tipo === tipo &&
-        Number(produtoExistente.preco) === preco;
+    // 2. Se uma nova imagem foi enviada e uma antiga existia, deleta a antiga do Blob
+    if (imagemUrl && produtoExistente.imagemUrl) {
+        try {
+            await del(produtoExistente.imagemUrl);
+        } catch (error) {
+            console.error(`Falha ao deletar o blob antigo ${produtoExistente.imagemUrl}:`, error);
+        }
+    }
 
-    if (dadosIguais) {
+    // 3. Monta o objeto de atualização apenas com os dados fornecidos
+    const dataToUpdate: any = {};
+    if (nome !== undefined) dataToUpdate.nome = nome;
+    if (descricao !== undefined) dataToUpdate.descricao = descricao;
+    if (tipo !== undefined) dataToUpdate.tipo = tipo;
+    if (preco !== undefined) dataToUpdate.preco = preco;
+    if (imagemUrl !== undefined) dataToUpdate.imagemUrl = imagemUrl;
+
+    // 4. Verifica se há algo para atualizar
+    if (Object.keys(dataToUpdate).length === 0) {
         throw new Error('Nenhuma alteração foi feita no produto.');
     }
 
+    // 5. Atualiza o produto no banco de dados
     const produtoAtualizado = await prisma.produto.update({
         where: { id: produtoId },
-        data: {
-            nome,
-            descricao,
-            tipo,
-            preco,
-        },
+        data: dataToUpdate,
     });
 
     return produtoAtualizado;
@@ -607,18 +618,36 @@ interface DeletarProdutoDTO {
 }
 
 export const deletarProdutoService = async ({ barbeariaId, produtoId }: DeletarProdutoDTO) => {
+    // 2. Encontrar o produto para validar a posse e pegar a URL da imagem
     const produtoExistente = await prisma.produto.findUnique({
         where: { id: produtoId },
     });
 
     if (!produtoExistente || produtoExistente.barbeariaId !== barbeariaId) {
-        return false;
+        // Retorna false para o controller saber que o produto não foi encontrado
+        return false; 
     }
 
+    // 3. Guardar a URL da imagem para usar depois
+    const imagemParaDeletar = produtoExistente.imagemUrl;
+
+    // 4. Deletar o produto do banco de dados
     await prisma.produto.delete({
         where: { id: produtoId },
     });
 
+    // 5. Após deletar do BD, se existia uma imagem, deletá-la do Vercel Blob
+    if (imagemParaDeletar) {
+        try {
+            await del(imagemParaDeletar); // Deleta usando a URL completa
+            console.log(`Blob do produto deletado com sucesso: ${imagemParaDeletar}`);
+        } catch (error) {
+            // Loga o erro, mas não falha a operação principal, que era deletar o registro do BD.
+            console.error(`Falha ao deletar o blob do produto ${imagemParaDeletar}:`, error);
+        }
+    }
+
+    // Retorna true para indicar que a operação foi bem-sucedida
     return true;
 };
 

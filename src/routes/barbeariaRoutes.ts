@@ -97,8 +97,18 @@ router.put('/:barbeariaId/servicos/:servicoId', checkRole([Role.ADMIN]), upload.
 router.delete('/:barbeariaId/servicos/:servicoId', checkRole([Role.ADMIN]), deletarServicoController);
 
 router.get('/:barbeariaId/adm/produtos', checkRole([Role.ADMIN, Role.BARBEIRO]), listarProdutosController);
-router.post('/:barbeariaId/produtos', checkRole([Role.ADMIN]), criarProdutoController);
-router.put('/:barbeariaId/produtos/:produtoId', checkRole([Role.ADMIN]), editarProdutoController);
+router.post(
+    '/:barbeariaId/produtos', 
+    checkRole([Role.ADMIN]), 
+    upload.single('imagemUrl'),
+    criarProdutoController
+);
+router.put(
+    '/:barbeariaId/produtos/:produtoId', 
+    checkRole([Role.ADMIN]), 
+    upload.single('imagemUrl'), // <-- ADICIONADO AQUI
+    editarProdutoController
+);
 router.delete('/:barbeariaId/produtos/:produtoId', checkRole([Role.ADMIN]), deletarProdutoController);
 
 router.get('/:barbeariaId/adm/redes-sociais', checkRole([Role.ADMIN, Role.BARBEIRO]), listarRedesSociaisController);

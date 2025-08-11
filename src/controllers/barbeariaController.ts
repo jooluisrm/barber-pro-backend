@@ -891,21 +891,37 @@ export const listarProdutosController = async (req: Request, res: Response) => {
     }
 };
 
-export const criarProdutoController = async (req: Request, res: Response) => {
+export const criarProdutoController = async (req: AuthRequest, res: Response) => {
     try {
-        const { barbeariaId } = req.params;
-        const { nome, descricao, tipo, preco, imagemUrl } = req.body;
+        // Usar o barbeariaId do token do admin logado é mais seguro
+        const barbeariaId = req.user!.barbeariaId;
+        const { nome, descricao, tipo, preco } = req.body;
+        let imagemUrlFinal: string | undefined = undefined;
 
-        // Validação básica no controller para evitar requisições inválidas
-        if (!nome || typeof nome !== 'string') {
-            return res.status(400).json({ error: 'Nome do produto é obrigatório.' });
+        // Validações básicas
+        if (!nome || !tipo || preco === undefined) {
+            return res.status(400).json({ error: 'Nome, tipo e preço são obrigatórios.' });
         }
-        if (!tipo || typeof tipo !== 'string') {
-            return res.status(400).json({ error: 'Tipo do produto é obrigatório.' });
+
+        // --- LÓGICA DE UPLOAD DA IMAGEM ---
+        if (req.file) {
+            const fileHash = crypto.randomBytes(16).toString('hex');
+            const fileName = `${fileHash}.webp`;
+
+            // Otimiza a imagem para um tamanho bom para produtos (ex: 800x800)
+            const processedImageBuffer = await sharp(req.file.buffer)
+                .resize({ width: 500, height: 500, fit: 'cover' }) // 'inside' evita cortar a imagem
+                .toFormat('webp', { quality: 80 })
+                .toBuffer();
+
+            const blob = await put(fileName, processedImageBuffer, {
+                access: 'public',
+                contentType: 'image/webp',
+            });
+            
+            imagemUrlFinal = blob.url; // Guarda a URL completa do Vercel Blob
         }
-        if (preco === undefined || isNaN(Number(preco)) || Number(preco) < 0) {
-            return res.status(400).json({ error: 'Preço do produto é obrigatório e deve ser positivo.' });
-        }
+        // --- FIM DA LÓGICA DE UPLOAD ---
 
         const novoProduto = await criarProdutoService({
             barbeariaId,
@@ -913,33 +929,47 @@ export const criarProdutoController = async (req: Request, res: Response) => {
             descricao,
             tipo,
             preco: Number(preco),
-            imagemUrl,
+            imagemUrl: imagemUrlFinal, // Passa a URL do Blob para o serviço
         });
 
         return res.status(201).json({
             message: 'Produto criado com sucesso!',
             produto: novoProduto,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Erro ao criar produto:', error);
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ error: 'Arquivo muito grande. O limite é de 5MB.' });
+        }
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };
 
-export const editarProdutoController = async (req: Request, res: Response) => {
+export const editarProdutoController = async (req: AuthRequest, res: Response) => {
     try {
-        const { barbeariaId, produtoId } = req.params;
+        const { produtoId } = req.params;
+        const barbeariaId = req.user!.barbeariaId; // Pega o ID da barbearia do token
         const { nome, descricao, tipo, preco } = req.body;
+        let imagemUrlFinal: string | undefined = undefined;
 
-        if (!nome || typeof nome !== 'string') {
-            return res.status(400).json({ error: 'Nome do produto é obrigatório.' });
+        // --- LÓGICA DE UPLOAD DA NOVA IMAGEM ---
+        if (req.file) {
+            const fileHash = crypto.randomBytes(16).toString('hex');
+            const fileName = `${fileHash}.webp`;
+
+            const processedImageBuffer = await sharp(req.file.buffer)
+                .resize({ width: 500, height: 500, fit: 'cover' })
+                .toFormat('webp', { quality: 80 })
+                .toBuffer();
+
+            const blob = await put(fileName, processedImageBuffer, {
+                access: 'public',
+                contentType: 'image/webp',
+            });
+            
+            imagemUrlFinal = blob.url;
         }
-        if (!tipo || typeof tipo !== 'string') {
-            return res.status(400).json({ error: 'Tipo do produto é obrigatório.' });
-        }
-        if (preco === undefined || isNaN(Number(preco)) || Number(preco) < 0) {
-            return res.status(400).json({ error: 'Preço do produto é obrigatório e deve ser positivo.' });
-        }
+        // --- FIM DA LÓGICA DE UPLOAD ---
 
         const produtoAtualizado = await editarProdutoService({
             barbeariaId,
@@ -947,19 +977,19 @@ export const editarProdutoController = async (req: Request, res: Response) => {
             nome,
             descricao,
             tipo,
-            preco: Number(preco),
+            preco: preco !== undefined ? Number(preco) : undefined, // Envia o preço como número se existir
+            imagemUrl: imagemUrlFinal,
         });
-
-        if (!produtoAtualizado) {
-            return res.status(404).json({ error: 'Produto não encontrado para esta barbearia.' });
-        }
 
         return res.status(200).json({
             message: 'Produto atualizado com sucesso!',
             produto: produtoAtualizado,
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Erro ao editar produto:', error);
+        if (error.message === 'Nenhuma alteração foi feita no produto.') {
+            return res.status(400).json({ error: error.message });
+        }
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };
