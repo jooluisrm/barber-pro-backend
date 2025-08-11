@@ -49,6 +49,7 @@ import {
   cancelarAgendamentoController,
   updateProfilePictureController,
   deleteProfilePictureController,
+  getBarbeariaByIdController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -79,6 +80,11 @@ router.get('/:barbeariaId/redes-sociais', obterRedesSociais);
 
 router.post('/registrar', registrarNovaBarbeariaController);
 router.post('/login', loginController);
+
+router.get(
+    '/barbershop/:barbeariaId', 
+    getBarbeariaByIdController
+);
 
 router.get('/agendamentos/pendente/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), getAgendamentosPendentesPorBarbeiroController);
 router.get('/agendamentos/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), getAgendamentosPorBarbeiroController);

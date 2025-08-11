@@ -1283,3 +1283,34 @@ export const deleteProfilePictureService = async ({ userId, userRole }: DeletePi
         console.error(`Falha ao deletar o blob antigo ${imageUrlToDelete}:`, error);
     }
 };
+
+export const getBarbeariaByIdService = async (barbeariaId: string) => {
+    const barbearia = await prisma.barbearia.findUnique({
+        where: {
+            id: barbeariaId,
+        },
+        select: {
+            id: true,
+            nome: true,
+            endereco: true,
+            celular: true,
+            telefone: true,
+            fotoPerfil: true,
+            descricao: true,
+            status: true,
+            stripeCurrentPeriodEnd: true,
+            latitude: true,
+            longitude: true
+        }
+    });
+
+    if (!barbearia) {
+        throw { status: 404, message: "Barbearia não encontrada." };
+    }
+    
+    // Se a foto de perfil for uma URL do Vercel Blob, ela já virá completa.
+    // Se for um nome de arquivo local, você pode adicionar a lógica de montar a URL aqui.
+    // Ex: barbearia.fotoPerfil = `${process.env.BACKEND_URL}/uploads/${barbearia.fotoPerfil}`
+
+    return barbearia;
+};

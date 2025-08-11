@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { alterarSenhaService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { alterarSenhaService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
@@ -1515,5 +1515,21 @@ export const deleteProfilePictureController = async (req: AuthRequest, res: Resp
     } catch (error: any) {
         console.error("Erro ao remover foto de perfil:", error);
         return res.status(500).json({ error: "Erro interno do servidor." });
+    }
+};
+
+export const getBarbeariaByIdController = async (req: Request, res: Response) => {
+    try {
+        // 1. O ID da barbearia agora é pego da URL.
+        const { barbeariaId } = req.params;
+
+        // 2. Chama o mesmo serviço reutilizado para buscar os dados
+        const barbearia = await getBarbeariaByIdService(barbeariaId);
+
+        return res.status(200).json(barbearia);
+
+    } catch (error: any) {
+        console.error("Erro ao buscar dados da barbearia por ID:", error);
+        return res.status(error.status || 500).json({ error: error.message || "Erro interno do servidor." });
     }
 };
