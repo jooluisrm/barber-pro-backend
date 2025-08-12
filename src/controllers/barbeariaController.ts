@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { alterarSenhaService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { alterarSenhaService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateBarbeariaService, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
@@ -1531,5 +1531,53 @@ export const getBarbeariaByIdController = async (req: Request, res: Response) =>
     } catch (error: any) {
         console.error("Erro ao buscar dados da barbearia por ID:", error);
         return res.status(error.status || 500).json({ error: error.message || "Erro interno do servidor." });
+    }
+};
+
+export const updateMinhaBarbeariaController = async (req: AuthRequest, res: Response) => {
+    try {
+        const barbeariaId = req.user!.barbeariaId;
+        const dados = req.body;
+        let fotoPerfilUrl: string | undefined = undefined;
+
+        // ✅ NOVA VALIDAÇÃO DE ENTRADA
+        // Verifica se os campos enviados, caso existam, não estão vazios.
+        if (dados.nome !== undefined && !dados.nome.trim()) {
+            return res.status(400).json({ error: 'O campo "nome" não pode ser vazio.' });
+        }
+        if (dados.celular !== undefined && !dados.celular.trim()) {
+            return res.status(400).json({ error: 'O campo "celular" não pode ser vazio.' });
+        }
+        if (dados.endereco !== undefined && !dados.endereco.trim()) {
+            return res.status(400).json({ error: 'O campo "endereço" não pode ser vazio.' });
+        }
+        // Fim da validação
+
+        if (req.file) {
+            // ... (lógica de upload para o Vercel Blob, que já está correta)
+            const fileHash = crypto.randomBytes(16).toString('hex');
+            const fileName = `${fileHash}.webp`;
+            const processedImageBuffer = await sharp(req.file.buffer).resize({ width: 400, height: 400, fit: 'cover' }).toFormat('webp', { quality: 80 }).toBuffer();
+            const blob = await put(fileName, processedImageBuffer, { access: 'public', contentType: 'image/webp' });
+            fotoPerfilUrl = blob.url;
+        }
+
+        const barbeariaAtualizada = await updateBarbeariaService({
+            barbeariaId,
+            ...dados,
+            fotoPerfil: fotoPerfilUrl,
+        });
+
+        return res.status(200).json({
+            message: 'Barbearia atualizada com sucesso!',
+            barbearia: barbeariaAtualizada,
+        });
+
+    } catch (error: any) {
+        console.error('Erro ao editar barbearia:', error);
+        if (error.status) { // Verifica se nosso erro customizado tem um status
+            return res.status(error.status).json({ error: error.message });
+        }
+        return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };

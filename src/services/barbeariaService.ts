@@ -2,7 +2,7 @@ import { Prisma, Role } from "@prisma/client";
 import { prisma } from "../libs/prisma";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import fs from 'fs/promises'; 
+import fs from 'fs/promises';
 import path from 'path';
 import { del } from "@vercel/blob";
 
@@ -323,7 +323,7 @@ export const deleteBarbeiroService = async (barbeiroId: string) => {
         await tx.barbeiro.delete({
             where: { id: barbeiroId },
         });
-        
+
         // Deleta a conta de login do barbeiro
         await tx.usuarioSistema.delete({
             where: { id: usuarioSistemaId },
@@ -449,7 +449,7 @@ export const editarServicoService = async ({ barbeariaId, servicoId, nome, durac
 
     // Formata o preço para comparação e para o banco de dados
     const precoFormatado = (preco !== undefined && preco !== '') ? Number(preco) : servicoExistente.preco;
-    
+
     // 2. Verifica se houve alguma alteração nos campos de texto
     const semAlteracoesDeTexto =
         servicoExistente.nome === nome &&
@@ -462,7 +462,7 @@ export const editarServicoService = async ({ barbeariaId, servicoId, nome, durac
         throw { status: 400, message: 'Nenhuma alteração foi feita.' };
     }
 
-     // Se uma nova imagem foi enviada E uma antiga existia, deleta a antiga do Blob.
+    // Se uma nova imagem foi enviada E uma antiga existia, deleta a antiga do Blob.
     if (imagemUrl && servicoExistente.imagemUrl) {
         try {
             await del(servicoExistente.imagemUrl); // 👈 Deleta usando a URL completa
@@ -625,7 +625,7 @@ export const deletarProdutoService = async ({ barbeariaId, produtoId }: DeletarP
 
     if (!produtoExistente || produtoExistente.barbeariaId !== barbeariaId) {
         // Retorna false para o controller saber que o produto não foi encontrado
-        return false; 
+        return false;
     }
 
     // 3. Guardar a URL da imagem para usar depois
@@ -1307,10 +1307,83 @@ export const getBarbeariaByIdService = async (barbeariaId: string) => {
     if (!barbearia) {
         throw { status: 404, message: "Barbearia não encontrada." };
     }
-    
+
     // Se a foto de perfil for uma URL do Vercel Blob, ela já virá completa.
     // Se for um nome de arquivo local, você pode adicionar a lógica de montar a URL aqui.
     // Ex: barbearia.fotoPerfil = `${process.env.BACKEND_URL}/uploads/${barbearia.fotoPerfil}`
 
     return barbearia;
+};
+
+interface UpdateBarbeariaDTO {
+    barbeariaId: string;
+    nome?: string;
+    descricao?: string;
+    endereco?: string;
+    celular?: string;
+    telefone?: string;
+    latitude?: number | string;
+    longitude?: number | string;
+    fotoPerfil?: string;
+}
+
+export const updateBarbeariaService = async (data: UpdateBarbeariaDTO) => {
+    const { barbeariaId, fotoPerfil, ...outrosDados } = data;
+
+    const barbeariaExistente = await prisma.barbearia.findUnique({
+        where: { id: barbeariaId },
+    });
+
+    if (!barbeariaExistente) {
+        throw { status: 404, message: 'Barbearia não encontrada.' };
+    }
+
+    if (fotoPerfil && barbeariaExistente.fotoPerfil) {
+        try {
+            await del(barbeariaExistente.fotoPerfil);
+        } catch (error) {
+            console.error(`Falha ao deletar o blob antigo ${barbeariaExistente.fotoPerfil}:`, error);
+        }
+    }
+
+    const dataToUpdate: any = {};
+    let algumaCoisaMudou = false;
+
+    for (const key in outrosDados) {
+        // ✅ AQUI ESTÁ A CORREÇÃO
+        // Dizemos ao TS que 'key' não é uma string qualquer, mas sim uma das chaves do nosso objeto.
+        const typedKey = key as keyof typeof outrosDados;
+
+        // Agora usamos a chave tipada 'typedKey' para acessar os valores sem erros.
+        if (outrosDados[typedKey] !== undefined) {
+            const valorAntigo = barbeariaExistente[typedKey];
+            const valorNovo = outrosDados[typedKey];
+
+            if (String(valorAntigo) !== String(valorNovo)) {
+                if (typedKey === 'latitude' || typedKey === 'longitude') {
+                    dataToUpdate[typedKey] = parseFloat(valorNovo as string);
+                } else {
+                    dataToUpdate[typedKey] = valorNovo;
+                }
+                algumaCoisaMudou = true;
+            }
+        }
+    }
+
+    if (fotoPerfil) {
+        dataToUpdate.fotoPerfil = fotoPerfil;
+        algumaCoisaMudou = true;
+    }
+
+    if (!algumaCoisaMudou) {
+        // ✅ Joga um erro com status para o controller capturar
+        throw { status: 400, message: 'Nenhuma alteração foi feita.' };
+    }
+
+    const barbeariaAtualizada = await prisma.barbearia.update({
+        where: { id: barbeariaId },
+        data: dataToUpdate,
+    });
+
+    return barbeariaAtualizada;
 };

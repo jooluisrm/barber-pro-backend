@@ -50,6 +50,7 @@ import {
   updateProfilePictureController,
   deleteProfilePictureController,
   getBarbeariaByIdController,
+  updateMinhaBarbeariaController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -81,9 +82,12 @@ router.get('/:barbeariaId/redes-sociais', obterRedesSociais);
 router.post('/registrar', registrarNovaBarbeariaController);
 router.post('/login', loginController);
 
-router.get(
-    '/barbershop/:barbeariaId', 
-    getBarbeariaByIdController
+router.get('/barbershop/:barbeariaId', getBarbeariaByIdController);
+router.put(
+    '/barbershop', 
+    checkRole([Role.ADMIN]), 
+    upload.single('fotoPerfil'), 
+    updateMinhaBarbeariaController
 );
 
 router.get('/agendamentos/pendente/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), getAgendamentosPendentesPorBarbeiroController);
