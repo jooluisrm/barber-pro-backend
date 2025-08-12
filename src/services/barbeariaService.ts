@@ -1335,9 +1335,27 @@ export const updateBarbeariaService = async (data: UpdateBarbeariaDTO) => {
     });
 
     if (!barbeariaExistente) {
-        throw { status: 404, message: 'Barbearia não encontrada.' };
+        throw { status: 404, message: 'Barbearia не encontrada.' };
     }
 
+    // ✅ NOVA VERIFICAÇÃO DE NOME DUPLICADO
+    // Só executa se um novo nome foi enviado e é diferente do nome atual.
+    if (outrosDados.nome && outrosDados.nome !== barbeariaExistente.nome) {
+        const nomeExistente = await prisma.barbearia.findFirst({
+            where: {
+                nome: outrosDados.nome,
+                // Garante que não estamos comparando a barbearia com ela mesma.
+                id: { not: barbeariaId } 
+            }
+        });
+
+        // Se encontrou outra barbearia com o mesmo nome, lança um erro.
+        if (nomeExistente) {
+            throw { status: 409, message: 'Este nome de barbearia já está em uso.' };
+        }
+    }
+
+    // O resto da sua lógica de deletar o blob antigo continua aqui...
     if (fotoPerfil && barbeariaExistente.fotoPerfil) {
         try {
             await del(barbeariaExistente.fotoPerfil);
@@ -1349,16 +1367,12 @@ export const updateBarbeariaService = async (data: UpdateBarbeariaDTO) => {
     const dataToUpdate: any = {};
     let algumaCoisaMudou = false;
 
+    // A sua lógica de comparação de dados continua aqui...
     for (const key in outrosDados) {
-        // ✅ AQUI ESTÁ A CORREÇÃO
-        // Dizemos ao TS que 'key' não é uma string qualquer, mas sim uma das chaves do nosso objeto.
         const typedKey = key as keyof typeof outrosDados;
-
-        // Agora usamos a chave tipada 'typedKey' para acessar os valores sem erros.
         if (outrosDados[typedKey] !== undefined) {
             const valorAntigo = barbeariaExistente[typedKey];
             const valorNovo = outrosDados[typedKey];
-
             if (String(valorAntigo) !== String(valorNovo)) {
                 if (typedKey === 'latitude' || typedKey === 'longitude') {
                     dataToUpdate[typedKey] = parseFloat(valorNovo as string);
@@ -1369,14 +1383,13 @@ export const updateBarbeariaService = async (data: UpdateBarbeariaDTO) => {
             }
         }
     }
-
+    
     if (fotoPerfil) {
         dataToUpdate.fotoPerfil = fotoPerfil;
         algumaCoisaMudou = true;
     }
-
+    
     if (!algumaCoisaMudou) {
-        // ✅ Joga um erro com status para o controller capturar
         throw { status: 400, message: 'Nenhuma alteração foi feita.' };
     }
 

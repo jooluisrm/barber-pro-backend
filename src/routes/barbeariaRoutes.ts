@@ -1,56 +1,56 @@
 import express from 'express';
 import {
-  obterBarbeariasAtivas,
-  obterBarbeariasProximas,
-  obterBarbeariasPorNome,
-  obterBarbeariaPorNome,
-  obterServicosPorBarbearia,
-  obterBarbeirosPorBarbearia,
-  obterProdutosPorBarbearia,
-  obterAvaliacoesPorBarbearia,
-  criarAvaliacao,
-  obterHorariosFuncionamento,
-  obterFormasPagamento,
-  obterRedesSociais,
-  getAgendamentosController,
-  updateStatusAgendamentoController,
-  registerBarbeiroController,
-  deleteBarbeiroController,
-  updateBarbeiroController,
-  getHorariosPorDiaController,
-  listarServicosController,
-  criarServicoController,
-  editarServicoController,
-  deletarServicoController,
-  listarProdutosController,
-  criarProdutoController,
-  editarProdutoController,
-  deletarProdutoController,
-  listarRedesSociaisController,
-  criarRedeSocialController,
-  editarRedeSocialController,
-  deletarRedeSocialController,
-  getFormasPagamentoController,
-  createFormaPagamentoController,
-  deleteFormaPagamentoController,
-  getHorariosFuncionamentoController,
-  createHorarioFuncionamentoController,
-  updateHorarioFuncionamentoController,
-  deleteHorarioFuncionamentoController,
-  createAgendamentoVisitanteController,
-  registrarNovaBarbeariaController,
-  loginController,
-  getAgendamentosPorBarbeiroController,
-  getAgendamentosPendentesPorBarbeiroController,
-  atualizarUsuarioController,
-  alterarSenhaController,
-  listarAgendamentosPendentesController,
-  concluirAgendamentoController,
-  cancelarAgendamentoController,
-  updateProfilePictureController,
-  deleteProfilePictureController,
-  getBarbeariaByIdController,
-  updateMinhaBarbeariaController,
+    obterBarbeariasAtivas,
+    obterBarbeariasProximas,
+    obterBarbeariasPorNome,
+    obterBarbeariaPorNome,
+    obterServicosPorBarbearia,
+    obterBarbeirosPorBarbearia,
+    obterProdutosPorBarbearia,
+    obterAvaliacoesPorBarbearia,
+    criarAvaliacao,
+    obterHorariosFuncionamento,
+    obterFormasPagamento,
+    obterRedesSociais,
+    getAgendamentosController,
+    updateStatusAgendamentoController,
+    registerBarbeiroController,
+    deleteBarbeiroController,
+    updateBarbeiroController,
+    getHorariosPorDiaController,
+    listarServicosController,
+    criarServicoController,
+    editarServicoController,
+    deletarServicoController,
+    listarProdutosController,
+    criarProdutoController,
+    editarProdutoController,
+    deletarProdutoController,
+    listarRedesSociaisController,
+    criarRedeSocialController,
+    editarRedeSocialController,
+    deletarRedeSocialController,
+    getFormasPagamentoController,
+    createFormaPagamentoController,
+    deleteFormaPagamentoController,
+    getHorariosFuncionamentoController,
+    createHorarioFuncionamentoController,
+    updateHorarioFuncionamentoController,
+    deleteHorarioFuncionamentoController,
+    createAgendamentoVisitanteController,
+    registrarNovaBarbeariaController,
+    loginController,
+    getAgendamentosPorBarbeiroController,
+    getAgendamentosPendentesPorBarbeiroController,
+    atualizarUsuarioController,
+    alterarSenhaController,
+    listarAgendamentosPendentesController,
+    concluirAgendamentoController,
+    cancelarAgendamentoController,
+    updateProfilePictureController,
+    deleteProfilePictureController,
+    getBarbeariaByIdController,
+    updateMinhaBarbeariaController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -78,17 +78,11 @@ router.get('/:barbeariaId/horarios', obterHorariosFuncionamento);
 router.get('/:barbeariaId/formas-pagamento', obterFormasPagamento);
 router.get('/:barbeariaId/redes-sociais', obterRedesSociais);
 
-
 router.post('/registrar', registrarNovaBarbeariaController);
 router.post('/login', loginController);
 
 router.get('/barbershop/:barbeariaId', getBarbeariaByIdController);
-router.put(
-    '/barbershop', 
-    checkRole([Role.ADMIN]), 
-    upload.single('fotoPerfil'), 
-    updateMinhaBarbeariaController
-);
+router.put('/barbershop', checkRole([Role.ADMIN]), upload.single('fotoPerfil'), updateMinhaBarbeariaController);
 
 router.get('/agendamentos/pendente/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), getAgendamentosPendentesPorBarbeiroController);
 router.get('/agendamentos/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), getAgendamentosPorBarbeiroController);
@@ -107,18 +101,8 @@ router.put('/:barbeariaId/servicos/:servicoId', checkRole([Role.ADMIN]), upload.
 router.delete('/:barbeariaId/servicos/:servicoId', checkRole([Role.ADMIN]), deletarServicoController);
 
 router.get('/:barbeariaId/adm/produtos', checkRole([Role.ADMIN, Role.BARBEIRO]), listarProdutosController);
-router.post(
-    '/:barbeariaId/produtos', 
-    checkRole([Role.ADMIN]), 
-    upload.single('imagemUrl'),
-    criarProdutoController
-);
-router.put(
-    '/:barbeariaId/produtos/:produtoId', 
-    checkRole([Role.ADMIN]), 
-    upload.single('imagemUrl'), // <-- ADICIONADO AQUI
-    editarProdutoController
-);
+router.post('/:barbeariaId/produtos', checkRole([Role.ADMIN]), upload.single('imagemUrl'), criarProdutoController);
+router.put('/:barbeariaId/produtos/:produtoId', checkRole([Role.ADMIN]), upload.single('imagemUrl'), editarProdutoController);
 router.delete('/:barbeariaId/produtos/:produtoId', checkRole([Role.ADMIN]), deletarProdutoController);
 
 router.get('/:barbeariaId/adm/redes-sociais', checkRole([Role.ADMIN, Role.BARBEIRO]), listarRedesSociaisController);
