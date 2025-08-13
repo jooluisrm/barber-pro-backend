@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { alterarSenhaService, arquivarProdutoService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateBarbeariaService, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { alterarSenhaService, arquivarProdutoService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosParaClienteService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateBarbeariaService, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
@@ -108,20 +108,21 @@ export const obterBarbeirosPorBarbearia = async (req: Request, res: Response) =>
     }
 };
 
-export const obterProdutosPorBarbearia = async (req: Request, res: Response) => {
+export const listarProdutosClienteController = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const { id: barbeariaId } = req.params; // 'id' aqui é o barbeariaId
 
-        const produtos = await BuscarProdutosPorBarbearia(id);
+        // Chama o novo serviço
+        const produtos = await listarProdutosParaClienteService(barbeariaId);
 
-        if (produtos.length === 0) {
-            return res.status(404).json({ error: 'Nenhum produto encontrado para esta barbearia.' });
-        }
-
+        // MELHORIA: Em vez de retornar 404, é uma prática comum para APIs
+        // retornar um array vazio com status 200. Isso simplifica o
+        // tratamento de dados no frontend.
         return res.status(200).json(produtos);
+
     } catch (error) {
-        console.error('Erro ao buscar produtos:', error);
-        return res.status(500).json({ error: 'Erro ao buscar produtos.' });
+        console.error('Erro ao buscar produtos para o cliente:', error);
+        return res.status(500).json({ error: 'Erro interno ao buscar produtos.' });
     }
 };
 

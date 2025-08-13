@@ -129,11 +129,25 @@ export const BuscarBarbeirosPorBarbearia = async (barbeariaId: string) => {
     });
 };
 
-export const BuscarProdutosPorBarbearia = async (barbeariaId: string) => {
+export const listarProdutosParaClienteService = async (barbeariaId: string) => {
     return await prisma.produto.findMany({
         where: {
-            barbeariaId, // Filtra os produtos pela barbearia
+            barbeariaId: barbeariaId,
+            status: 'ATIVO', // A MUDANÇA PRINCIPAL: Filtra apenas produtos ativos.
         },
+        // MELHORIA: Seleciona apenas os campos necessários para o cliente.
+        // Isso evita expor dados sensíveis como o 'custo'.
+        select: {
+            id: true,
+            nome: true,
+            descricao: true,
+            precoVenda: true,
+            imagemUrl: true,
+            tipo: true,
+        },
+        orderBy: {
+            nome: 'asc',
+        }
     });
 };
 

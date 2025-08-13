@@ -6,7 +6,6 @@ import {
     obterBarbeariaPorNome,
     obterServicosPorBarbearia,
     obterBarbeirosPorBarbearia,
-    obterProdutosPorBarbearia,
     obterAvaliacoesPorBarbearia,
     criarAvaliacao,
     obterHorariosFuncionamento,
@@ -51,6 +50,7 @@ import {
     getBarbeariaByIdController,
     updateMinhaBarbeariaController,
     arquivarProdutoController,
+    listarProdutosClienteController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -71,7 +71,7 @@ router.get('/buscar/:nome', obterBarbeariasPorNome);
 router.get('/:nome', obterBarbeariaPorNome);
 router.get('/:id/servicos', obterServicosPorBarbearia);
 router.get('/:id/profissionais', obterBarbeirosPorBarbearia);
-router.get('/:id/produtos', obterProdutosPorBarbearia);
+router.get('/:id/produtos', listarProdutosClienteController);
 router.get('/:id/avaliacoes', obterAvaliacoesPorBarbearia);
 router.post('/:id/avaliacoes', autenticarToken, criarAvaliacao);
 router.get('/:barbeariaId/horarios', obterHorariosFuncionamento);
