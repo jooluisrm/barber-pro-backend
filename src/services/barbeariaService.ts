@@ -1,4 +1,4 @@
-import { Prisma, Produto, Role, TipoMovimentacao } from "@prisma/client";
+import { Prisma, Produto, Role, StatusProduto, TipoMovimentacao } from "@prisma/client";
 import { prisma } from "../libs/prisma";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -513,13 +513,63 @@ export const deletarServicoService = async ({ barbeariaId, servicoId }: DeletarS
     }
 };
 
-export const listarProdutosService = async (barbeariaId: string) => {
-    const produtos = await prisma.produto.findMany({
-        where: { barbeariaId },
-        orderBy: { nome: 'asc' },
-    });
+interface ListarProdutosOptions {
+    barbeariaId: string;
+    page?: number;
+    pageSize?: number;
+    searchQuery?: string;
+    status?: StatusProduto; // Filtra por ATIVO ou ARQUIVADO
+}
 
-    return produtos;
+// ALTERADO: Função de listagem totalmente refatorada
+export const listarProdutosService = async (options: ListarProdutosOptions) => {
+    const { 
+        barbeariaId, 
+        page = 1,          // Valor padrão da página é 1
+        pageSize = 10,     // Valor padrão de 10 itens por página
+        searchQuery, 
+        status = 'ATIVO' // VALOR PADRÃO: Retorna apenas produtos ATIVOS
+    } = options;
+
+    // Constrói a cláusula 'where' dinamicamente
+    const whereClause: any = {
+        barbeariaId: barbeariaId,
+        status: status, // Filtra pelo status recebido (padrão: ATIVO)
+    };
+
+    // Adiciona a busca por nome, se um searchQuery for fornecido
+    if (searchQuery) {
+        whereClause.nome = {
+            contains: searchQuery,
+            mode: 'insensitive', // Ignora maiúsculas/minúsculas
+        };
+    }
+
+    const skip = (page - 1) * pageSize;
+
+    // Executa duas queries em paralelo para otimização
+    const [produtos, total] = await prisma.$transaction([
+        // Query 1: Busca os produtos com paginação e filtros
+        prisma.produto.findMany({
+            where: whereClause,
+            orderBy: { nome: 'asc' },
+            skip: skip,
+            take: pageSize,
+        }),
+        // Query 2: Conta o total de produtos que correspondem ao filtro (sem paginação)
+        prisma.produto.count({
+            where: whereClause,
+        }),
+    ]);
+
+    // Retorna um objeto estruturado com os dados e a paginação
+    return {
+        produtos,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+    };
 };
 
 // ALTERADO: Interface DTO com os novos campos

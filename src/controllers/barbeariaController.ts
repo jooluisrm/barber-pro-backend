@@ -877,17 +877,35 @@ export const deletarServicoController = async (req: Request, res: Response) => {
     }
 };
 
-export const listarProdutosController = async (req: Request, res: Response) => {
+export const listarProdutosController = async (req: AuthRequest, res: Response) => {
     try {
-        const { barbeariaId } = req.params;
+        // Mais seguro: usar o barbeariaId do token
+        const barbeariaId = req.user!.barbeariaId;
 
-        if (!barbeariaId) {
-            return res.status(400).json({ error: 'ID da barbearia é obrigatório.' });
-        }
+        // Extrai os parâmetros de paginação e filtro da query string da URL
+        const { 
+            page = '1', 
+            limit = '10', 
+            q, // 'q' de query (para busca)
+            status // 'ATIVO' ou 'ARQUIVADO'
+        } = req.query;
 
-        const produtos = await listarProdutosService(barbeariaId);
+        const pageNumber = parseInt(page as string, 10);
+        const pageSize = parseInt(limit as string, 10);
 
-        return res.status(200).json(produtos);
+        // Valida o status para garantir que apenas valores válidos sejam passados
+        const statusEnum = status === 'ARQUIVADO' ? 'ARQUIVADO' : 'ATIVO';
+
+        const resultado = await listarProdutosService({
+            barbeariaId,
+            page: pageNumber,
+            pageSize: pageSize,
+            searchQuery: q as string,
+            status: statusEnum,
+        });
+
+        return res.status(200).json(resultado);
+
     } catch (error) {
         console.error('Erro ao buscar produtos da barbearia:', error);
         return res.status(500).json({ error: 'Erro interno do servidor.' });
