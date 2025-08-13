@@ -962,12 +962,21 @@ export const criarProdutoController = async (req: AuthRequest, res: Response) =>
 export const editarProdutoController = async (req: AuthRequest, res: Response) => {
     try {
         const { produtoId } = req.params;
-        const barbeariaId = req.user!.barbeariaId; // Pega o ID da barbearia do token
-        const { nome, descricao, tipo, preco } = req.body;
+        const barbeariaId = req.user!.barbeariaId;
+        const responsavelId = req.user!.id; // NOVO: Captura o ID do usuário logado
+
+        // ALTERADO: Coletando todos os campos possíveis do body
+        const { 
+            nome, descricao, tipo, precoVenda, custo, 
+            alertaEstoqueBaixo, dataValidade,
+            ajusteEstoque, motivoAjuste 
+        } = req.body;
+
         let imagemUrlFinal: string | undefined = undefined;
 
-        // --- LÓGICA DE UPLOAD DA NOVA IMAGEM ---
+        // --- LÓGICA DE UPLOAD DA NOVA IMAGEM (permanece a mesma) ---
         if (req.file) {
+            // ... seu código de upload ...
             const fileHash = crypto.randomBytes(16).toString('hex');
             const fileName = `${fileHash}.webp`;
 
@@ -985,13 +994,21 @@ export const editarProdutoController = async (req: AuthRequest, res: Response) =
         }
         // --- FIM DA LÓGICA DE UPLOAD ---
 
+        // ALTERADO: Chamada ao serviço com o novo DTO completo
         const produtoAtualizado = await editarProdutoService({
-            barbeariaId,
             produtoId,
+            barbeariaId,
+            responsavelId, // NOVO
             nome,
             descricao,
             tipo,
-            preco: preco !== undefined ? Number(preco) : undefined, // Envia o preço como número se existir
+            // IMPORTANTE: Converter para número apenas se o valor for fornecido
+            precoVenda: precoVenda !== undefined ? Number(precoVenda) : undefined,
+            custo: custo !== undefined ? Number(custo) : undefined,
+            alertaEstoqueBaixo: alertaEstoqueBaixo !== undefined ? Number(alertaEstoqueBaixo) : undefined,
+            dataValidade: dataValidade,
+            ajusteEstoque: ajusteEstoque !== undefined ? Number(ajusteEstoque) : undefined,
+            motivoAjuste: motivoAjuste,
             imagemUrl: imagemUrlFinal,
         });
 
@@ -1001,7 +1018,8 @@ export const editarProdutoController = async (req: AuthRequest, res: Response) =
         });
     } catch (error: any) {
         console.error('Erro ao editar produto:', error);
-        if (error.message === 'Nenhuma alteração foi feita no produto.') {
+        // Tratamento de erros específicos do serviço
+        if (error.message.includes('não encontrado') || error.message.includes('Nenhuma alteração') || error.message.includes('obrigatório') || error.message.includes('negativo')) {
             return res.status(400).json({ error: error.message });
         }
         return res.status(500).json({ error: 'Erro interno do servidor.' });

@@ -580,57 +580,83 @@ export const criarProdutoService = async (data: CriarProdutoDTO): Promise<Produt
 interface EditarProdutoDTO {
     barbeariaId: string;
     produtoId: string;
+    responsavelId: string; // NOVO: ID do usuário que faz a alteração
     nome?: string;
     descricao?: string;
     tipo?: string;
-    preco?: number;
+    precoVenda?: number;
+    custo?: number;
+    alertaEstoqueBaixo?: number;
+    dataValidade?: string | Date;
     imagemUrl?: string;
+    ajusteEstoque?: number; // NOVO: Valor a ser somado/subtraído do estoque (ex: 10, -5)
+    motivoAjuste?: string;  // NOVO: Motivo da alteração do estoque
 }
 
-export const editarProdutoService = async ({
-    barbeariaId,
-    produtoId,
-    nome,
-    descricao,
-    tipo,
-    preco,
-    imagemUrl,
-}: EditarProdutoDTO) => {
-    // 1. Busca o produto para validar a existência e a posse
-    const produtoExistente = await prisma.produto.findUnique({
-        where: { id: produtoId },
-    });
+export const editarProdutoService = async (data: EditarProdutoDTO): Promise<Produto> => {
 
-    if (!produtoExistente || produtoExistente.barbeariaId !== barbeariaId) {
-        throw new Error('Produto não encontrado para esta barbearia.');
-    }
+    const produtoAtualizado = await prisma.$transaction(async (tx) => {
+        // 1. Busca o produto para validar a existência e a posse
+        const produtoExistente = await tx.produto.findUnique({
+            where: { id: data.produtoId },
+        });
 
-    // 2. Se uma nova imagem foi enviada e uma antiga existia, deleta a antiga do Blob
-    if (imagemUrl && produtoExistente.imagemUrl) {
-        try {
-            await del(produtoExistente.imagemUrl);
-        } catch (error) {
-            console.error(`Falha ao deletar o blob antigo ${produtoExistente.imagemUrl}:`, error);
+        if (!produtoExistente || produtoExistente.barbeariaId !== data.barbeariaId) {
+            throw new Error('Produto não encontrado ou não pertence a esta barbearia.');
         }
-    }
 
-    // 3. Monta o objeto de atualização apenas com os dados fornecidos
-    const dataToUpdate: any = {};
-    if (nome !== undefined) dataToUpdate.nome = nome;
-    if (descricao !== undefined) dataToUpdate.descricao = descricao;
-    if (tipo !== undefined) dataToUpdate.tipo = tipo;
-    if (preco !== undefined) dataToUpdate.preco = preco;
-    if (imagemUrl !== undefined) dataToUpdate.imagemUrl = imagemUrl;
+        // 2. Se uma nova imagem foi enviada, deleta a antiga (sua lógica atual está perfeita)
+        if (data.imagemUrl && produtoExistente.imagemUrl) {
+            await del(produtoExistente.imagemUrl).catch(err => 
+                console.error(`Falha ao deletar o blob antigo ${produtoExistente.imagemUrl}:`, err)
+            );
+        }
 
-    // 4. Verifica se há algo para atualizar
-    if (Object.keys(dataToUpdate).length === 0) {
-        throw new Error('Nenhuma alteração foi feita no produto.');
-    }
+        // 3. Monta o objeto de atualização para os dados descritivos
+        const dataToUpdate: any = {};
+        if (data.nome !== undefined) dataToUpdate.nome = data.nome;
+        if (data.descricao !== undefined) dataToUpdate.descricao = data.descricao;
+        if (data.tipo !== undefined) dataToUpdate.tipo = data.tipo;
+        if (data.precoVenda !== undefined) dataToUpdate.precoVenda = data.precoVenda;
+        if (data.custo !== undefined) dataToUpdate.custo = data.custo;
+        if (data.alertaEstoqueBaixo !== undefined) dataToUpdate.alertaEstoqueBaixo = data.alertaEstoqueBaixo;
+        if (data.dataValidade !== undefined) dataToUpdate.dataValidade = data.dataValidade ? new Date(data.dataValidade) : null;
+        if (data.imagemUrl !== undefined) dataToUpdate.imagemUrl = data.imagemUrl;
 
-    // 5. Atualiza o produto no banco de dados
-    const produtoAtualizado = await prisma.produto.update({
-        where: { id: produtoId },
-        data: dataToUpdate,
+        // 4. Lógica para o AJUSTE DE ESTOQUE
+        if (data.ajusteEstoque !== undefined && data.ajusteEstoque !== 0) {
+            if (!data.motivoAjuste) {
+                throw new Error('O motivo do ajuste de estoque é obrigatório.');
+            }
+
+            const novaQuantidade = produtoExistente.quantidade + data.ajusteEstoque;
+            if (novaQuantidade < 0) {
+                throw new Error('Ajuste inválido. O estoque não pode ficar negativo.');
+            }
+            dataToUpdate.quantidade = novaQuantidade; // Adiciona a nova quantidade ao update
+
+            // Cria o registro de movimentação
+            await tx.movimentacaoEstoque.create({
+                data: {
+                    produtoId: data.produtoId,
+                    tipo: data.ajusteEstoque > 0 ? TipoMovimentacao.ENTRADA : TipoMovimentacao.SAIDA,
+                    quantidade: Math.abs(data.ajusteEstoque), // A quantidade é sempre positiva
+                    motivo: data.motivoAjuste,
+                    responsavelId: data.responsavelId,
+                }
+            });
+        }
+        
+        // 5. Verifica se há algo para atualizar
+        if (Object.keys(dataToUpdate).length === 0) {
+            throw new Error('Nenhuma alteração foi fornecida.');
+        }
+
+        // 6. Atualiza o produto no banco de dados
+        return tx.produto.update({
+            where: { id: data.produtoId },
+            data: dataToUpdate,
+        });
     });
 
     return produtoAtualizado;
