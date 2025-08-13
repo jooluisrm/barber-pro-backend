@@ -329,7 +329,9 @@ export const loginController = async (req: Request, res: Response) => {
                 barbearia: { // Incluímos os dados da barbearia relacionada
                     select: {
                         nome: true, // Só precisamos do nome por enquanto
-                        stripeCurrentPeriodEnd: true// Se precisar de mais dados da barbearia no futuro, adicione aqui
+                        stripeCurrentPeriodEnd: true,// Se precisar de mais dados da barbearia no futuro, adicione aqui
+                        fotoPerfil: true,
+                        endereco: true,
                     }
                 }
             }
