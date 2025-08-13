@@ -17,33 +17,33 @@ enum Role {
 
 // <-- NOVO: Modelo central para todos os utilizadores que podem fazer login no sistema de gestão.
 model UsuarioSistema {
-  id          String    @id @default(uuid())
+  id          String  @id @default(uuid())
   nome        String
-  email       String    @unique
+  email       String  @unique
   senha       String
   fotoPerfil  String?
-  role        Role      // A função do utilizador: ADMIN ou BARBEIRO.
+  role        Role // A função do utilizador: ADMIN ou BARBEIRO.
   barbeariaId String
 
-  barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+
   // Relacionamento opcional com o perfil de Barbeiro.
   // Um admin não terá este perfil, mas um utilizador com role BARBEIRO terá.
   barbeiroProfile Barbeiro?
 }
 
 model Barbearia {
-  id        String    @id @default(uuid())
-  nome      String    @unique
+  id         String  @id @default(uuid())
+  nome       String  @unique
   // <-- ALTERADO: Email e Senha foram movidos para o modelo UsuarioSistema.
-  endereco  String?
-  celular   String?
-  telefone  String?
+  endereco   String?
+  celular    String?
+  telefone   String?
   fotoPerfil String? // Opcional: pode manter aqui ou usar o do UsuarioSistema
-  descricao String?
-  latitude  Float
-  longitude Float
-  status    String    @default("Ativa")
+  descricao  String?
+  latitude   Float
+  longitude  Float
+  status     String  @default("Ativa")
 
   // --- CAMPOS PARA ASSINATURA STRIPE ---
   stripeCustomerId       String?   @unique
@@ -52,7 +52,7 @@ model Barbearia {
   stripeCurrentPeriodEnd DateTime?
 
   // <-- ALTERADO: A barbearia agora se relaciona com os seus utilizadores do sistema.
-  usuariosSistema      UsuarioSistema[]
+  usuariosSistema UsuarioSistema[]
 
   barbeiros             Barbeiro[]
   servicos              Servico[]
@@ -76,7 +76,7 @@ model Barbeiro {
   usuarioSistemaId String         @unique
   usuarioSistema   UsuarioSistema @relation(fields: [usuarioSistemaId], references: [id], onDelete: Cascade)
 
-  barbearia    Barbearia       @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbearia    Barbearia         @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   horarios     HorarioTrabalho[]
   agendamentos Agendamento[]
 }
@@ -85,7 +85,7 @@ model Barbeiro {
 // Eles permanecem exatamente como estão.
 
 model HorariosFuncionamentoBarbearia {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   barbeariaId String
   diaSemana   Int
   horaInicio  String
@@ -94,14 +94,14 @@ model HorariosFuncionamentoBarbearia {
 }
 
 model FormaPagamento {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   barbeariaId String
   tipo        String
   barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
 }
 
 model RedeSocial {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   barbeariaId String
   link        String
   rede        String
@@ -117,27 +117,56 @@ model HorarioTrabalho {
 }
 
 model Servico {
-  id          String      @id @default(uuid())
-  barbeariaId String
-  nome        String
-  duracao     Int
-  preco       Decimal?
-  imagemUrl   String?
-  barbearia   Barbearia   @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  id           String        @id @default(uuid())
+  barbeariaId  String
+  nome         String
+  duracao      Int
+  preco        Decimal?
+  imagemUrl    String?
+  barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   agendamentos Agendamento[]
 }
 
-model Produto {
-  id          String   @id @default(uuid())
-  barbeariaId String
-  nome        String
-  descricao   String?
-  preco       Decimal
-  tipo        String
-  imagemUrl   String?
-  estoque     Boolean
-  barbearia   Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+// NOVO: Enum para o tipo de movimentação de estoque
+enum TipoMovimentacao {
+  ENTRADA
+  SAIDA
 }
+
+// NOVO: Modelo para registrar o histórico de movimentações de estoque
+model MovimentacaoEstoque {
+  id            String           @id @default(uuid())
+  produtoId     String
+  tipo          TipoMovimentacao // Será ENTRADA (compra) ou SAIDA (venda, uso, perda)
+  quantidade    Int // Quantos itens foram movimentados
+  data          DateTime         @default(now())
+  motivo        String? // Opcional: "Venda", "Compra de fornecedor", "Ajuste de inventário"
+  responsavelId String? // Opcional, mas recomendado: ID do UsuarioSistema que fez a ação
+
+  produto Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  // Se quiser vincular ao usuário, descomente a linha abaixo e adicione o campo no model UsuarioSistema
+  // responsavel   UsuarioSistema?   @relation(fields: [responsavelId], references: [id])
+}
+
+model Produto {
+  id                 String    @id @default(uuid())
+  barbeariaId        String
+  nome               String
+  descricao          String?
+  precoVenda         Decimal // ALTERADO: Renomeado de 'preco' para maior clareza
+  custo              Decimal // NOVO: Custo de compra do produto
+  quantidade         Int       @default(0) // NOVO: Saldo atual do produto em estoque
+  dataValidade       DateTime? // NOVO: Campo para controlar o vencimento
+  alertaEstoqueBaixo Int? // NOVO: Nível numérico para alerta de estoque baixo
+  tipo               String
+  imagemUrl          String?
+
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+
+  // NOVO: Relacionamento com o histórico de movimentações
+  movimentacoes MovimentacaoEstoque[]
+}
+
 
 model Agendamento {
   id          String @id @default(uuid())
@@ -150,9 +179,9 @@ model Agendamento {
   status      String @default("Confirmado")
 
   usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  barbearia  Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  barbeiro    Barbeiro  @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
-  servico     Servico   @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbeiro  Barbeiro  @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
+  servico   Servico   @relation(fields: [servicoId], references: [id], onDelete: Cascade)
 }
 
 model Avaliacao {
@@ -164,7 +193,7 @@ model Avaliacao {
   dataHora    DateTime @default(now())
 
   usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  barbearia  Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
 }
 
 // Este modelo é para os clientes finais da barbearia, não para os gestores.
