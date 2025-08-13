@@ -896,24 +896,28 @@ export const listarProdutosController = async (req: Request, res: Response) => {
 
 export const criarProdutoController = async (req: AuthRequest, res: Response) => {
     try {
-        // Usar o barbeariaId do token do admin logado é mais seguro
         const barbeariaId = req.user!.barbeariaId;
-        const { nome, descricao, tipo, preco } = req.body;
+        const responsavelId = req.user!.id; // NOVO: Captura o ID do usuário logado
+
+        // ALTERADO: Coletando os novos campos do body
+        const { nome, descricao, tipo, precoVenda, custo, quantidade, alertaEstoqueBaixo, dataValidade } = req.body;
+        
         let imagemUrlFinal: string | undefined = undefined;
 
-        // Validações básicas
-        if (!nome || !tipo || preco === undefined) {
-            return res.status(400).json({ error: 'Nome, tipo e preço são obrigatórios.' });
+        // ALTERADO: Validações para os novos campos obrigatórios
+        if (!nome || !tipo || precoVenda === undefined || custo === undefined || quantidade === undefined) {
+            return res.status(400).json({ 
+                error: 'Campos obrigatórios ausentes. É necessário fornecer: nome, tipo, precoVenda, custo e quantidade.' 
+            });
         }
 
-        // --- LÓGICA DE UPLOAD DA IMAGEM ---
+        // --- LÓGICA DE UPLOAD DA IMAGEM (permanece a mesma) ---
         if (req.file) {
             const fileHash = crypto.randomBytes(16).toString('hex');
             const fileName = `${fileHash}.webp`;
 
-            // Otimiza a imagem para um tamanho bom para produtos (ex: 800x800)
             const processedImageBuffer = await sharp(req.file.buffer)
-                .resize({ width: 500, height: 500, fit: 'cover' }) // 'inside' evita cortar a imagem
+                .resize({ width: 500, height: 500, fit: 'cover' })
                 .toFormat('webp', { quality: 80 })
                 .toBuffer();
 
@@ -922,21 +926,28 @@ export const criarProdutoController = async (req: AuthRequest, res: Response) =>
                 contentType: 'image/webp',
             });
             
-            imagemUrlFinal = blob.url; // Guarda a URL completa do Vercel Blob
+            imagemUrlFinal = blob.url;
         }
         // --- FIM DA LÓGICA DE UPLOAD ---
 
+        // ALTERADO: Chamada ao serviço com os novos dados
         const novoProduto = await criarProdutoService({
             barbeariaId,
+            responsavelId, // NOVO
             nome,
             descricao,
             tipo,
-            preco: Number(preco),
-            imagemUrl: imagemUrlFinal, // Passa a URL do Blob para o serviço
+            // IMPORTANTE: Garantir que os valores numéricos sejam de fato números
+            precoVenda: Number(precoVenda),
+            custo: Number(custo),
+            quantidade: Number(quantidade),
+            alertaEstoqueBaixo: alertaEstoqueBaixo ? Number(alertaEstoqueBaixo) : undefined,
+            dataValidade: dataValidade, // O serviço já trata se é nulo
+            imagemUrl: imagemUrlFinal,
         });
 
         return res.status(201).json({
-            message: 'Produto criado com sucesso!',
+            message: 'Produto criado com sucesso e estoque inicializado!',
             produto: novoProduto,
         });
     } catch (error: any) {

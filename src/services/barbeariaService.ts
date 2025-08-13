@@ -1,4 +1,4 @@
-import { Prisma, Role } from "@prisma/client";
+import { Prisma, Produto, Role, TipoMovimentacao } from "@prisma/client";
 import { prisma } from "../libs/prisma";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -522,33 +522,56 @@ export const listarProdutosService = async (barbeariaId: string) => {
     return produtos;
 };
 
+// ALTERADO: Interface DTO com os novos campos
 interface CriarProdutoDTO {
     barbeariaId: string;
     nome: string;
     descricao?: string;
     tipo: string;
-    preco: number;
+    precoVenda: number; // ALTERADO: de 'preco' para 'precoVenda'
+    custo: number; // NOVO
+    quantidade: number; // NOVO: Quantidade inicial
+    alertaEstoqueBaixo?: number; // NOVO
+    dataValidade?: string | Date; // NOVO
     imagemUrl?: string;
+    responsavelId: string; // NOVO: ID do usuário que está criando
 }
 
-export const criarProdutoService = async ({
-    barbeariaId,
-    nome,
-    descricao,
-    tipo,
-    preco,
-    imagemUrl,
-}: CriarProdutoDTO) => {
-    const novoProduto = await prisma.produto.create({
-        data: {
-            barbeariaId,
-            nome,
-            descricao: descricao || null,
-            tipo,
-            preco,
-            imagemUrl: imagemUrl || null,
-            estoque: true,
-        },
+export const criarProdutoService = async (data: CriarProdutoDTO): Promise<Produto> => {
+    
+    // IMPORTANTE: Usando uma transação para garantir a consistência dos dados
+    const novoProduto = await prisma.$transaction(async (tx) => {
+        // 1. Cria o produto no banco de dados
+        const produtoCriado = await tx.produto.create({
+            data: {
+                barbeariaId: data.barbeariaId,
+                nome: data.nome,
+                descricao: data.descricao || null,
+                tipo: data.tipo,
+                precoVenda: data.precoVenda,
+                custo: data.custo,
+                quantidade: data.quantidade,
+                alertaEstoqueBaixo: data.alertaEstoqueBaixo || null,
+                // Converte a string da data para um objeto Date, se fornecido
+                dataValidade: data.dataValidade ? new Date(data.dataValidade) : null,
+                imagemUrl: data.imagemUrl || null,
+            },
+        });
+
+        // 2. Se o produto foi criado com uma quantidade inicial, cria a primeira movimentação
+        if (produtoCriado && data.quantidade > 0) {
+            await tx.movimentacaoEstoque.create({
+                data: {
+                    produtoId: produtoCriado.id,
+                    tipo: TipoMovimentacao.ENTRADA, // A primeira movimentação é uma ENTRADA
+                    quantidade: data.quantidade,
+                    motivo: 'Cadastro inicial de produto',
+                    responsavelId: data.responsavelId,
+                }
+            });
+        }
+        
+        return produtoCriado;
     });
 
     return novoProduto;
