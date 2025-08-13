@@ -25,7 +25,6 @@ import {
     listarProdutosController,
     criarProdutoController,
     editarProdutoController,
-    deletarProdutoController,
     listarRedesSociaisController,
     criarRedeSocialController,
     editarRedeSocialController,
@@ -51,6 +50,7 @@ import {
     deleteProfilePictureController,
     getBarbeariaByIdController,
     updateMinhaBarbeariaController,
+    arquivarProdutoController,
 } from '../controllers/barbeariaController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 import { checkSubscription } from '../middlewares/checkSubscription';
@@ -103,7 +103,7 @@ router.delete('/:barbeariaId/servicos/:servicoId', checkRole([Role.ADMIN]), dele
 router.get('/:barbeariaId/adm/produtos', checkRole([Role.ADMIN, Role.BARBEIRO]), listarProdutosController);
 router.post('/:barbeariaId/produtos', checkRole([Role.ADMIN]), upload.single('imagemUrl'), criarProdutoController);
 router.put('/:barbeariaId/produtos/:produtoId', checkRole([Role.ADMIN]), upload.single('imagemUrl'), editarProdutoController);
-router.delete('/:barbeariaId/produtos/:produtoId', checkRole([Role.ADMIN]), deletarProdutoController);
+router.delete('/:barbeariaId/produtos/:produtoId', checkRole([Role.ADMIN]), arquivarProdutoController);
 
 router.get('/:barbeariaId/adm/redes-sociais', checkRole([Role.ADMIN, Role.BARBEIRO]), listarRedesSociaisController);
 router.post('/:barbeariaId/redes-sociais', checkRole([Role.ADMIN]), criarRedeSocialController);

@@ -148,6 +148,11 @@ model MovimentacaoEstoque {
   // responsavel   UsuarioSistema?   @relation(fields: [responsavelId], references: [id])
 }
 
+enum StatusProduto {
+  ATIVO
+  ARQUIVADO
+}
+
 model Produto {
   id                 String    @id @default(uuid())
   barbeariaId        String
@@ -160,6 +165,7 @@ model Produto {
   alertaEstoqueBaixo Int? // NOVO: Nível numérico para alerta de estoque baixo
   tipo               String
   imagemUrl          String?
+  status             StatusProduto @default(ATIVO)
 
   barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
 

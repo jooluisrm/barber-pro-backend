@@ -667,40 +667,38 @@ interface DeletarProdutoDTO {
     produtoId: string;
 }
 
-export const deletarProdutoService = async ({ barbeariaId, produtoId }: DeletarProdutoDTO) => {
-    // 2. Encontrar o produto para validar a posse e pegar a URL da imagem
-    const produtoExistente = await prisma.produto.findUnique({
-        where: { id: produtoId },
+// RENOMEADO E ALTERADO: De 'deletar' para 'arquivar'
+export const arquivarProdutoService = async ({ barbeariaId, produtoId }: DeletarProdutoDTO): Promise<Produto> => {
+    // 1. Busca o produto para validar a posse
+    const produtoExistente = await prisma.produto.findFirst({
+        where: { 
+            id: produtoId,
+            barbeariaId: barbeariaId,
+        },
     });
 
-    if (!produtoExistente || produtoExistente.barbeariaId !== barbeariaId) {
-        // Retorna false para o controller saber que o produto não foi encontrado
-        return false;
+    if (!produtoExistente) {
+        throw new Error('Produto não encontrado ou não pertence a esta barbearia.');
     }
 
-    // 3. Guardar a URL da imagem para usar depois
-    const imagemParaDeletar = produtoExistente.imagemUrl;
+    // 2. Se o produto já estiver arquivado, podemos lançar um erro ou apenas retorná-lo
+    if (produtoExistente.status === 'ARQUIVADO') {
+        throw new Error('Este produto já está arquivado.');
+    }
 
-    // 4. Deletar o produto do banco de dados
-    await prisma.produto.delete({
+    // 3. Em vez de deletar, atualizamos o status para ARQUIVADO
+    const produtoArquivado = await prisma.produto.update({
         where: { id: produtoId },
+        data: {
+            status: 'ARQUIVADO',
+        },
     });
 
-    // 5. Após deletar do BD, se existia uma imagem, deletá-la do Vercel Blob
-    if (imagemParaDeletar) {
-        try {
-            await del(imagemParaDeletar); // Deleta usando a URL completa
-            console.log(`Blob do produto deletado com sucesso: ${imagemParaDeletar}`);
-        } catch (error) {
-            // Loga o erro, mas não falha a operação principal, que era deletar o registro do BD.
-            console.error(`Falha ao deletar o blob do produto ${imagemParaDeletar}:`, error);
-        }
-    }
+    // IMPORTANTE: Não deletamos a imagem do Vercel Blob. 
+    // Ela ainda pode ser útil para exibir em relatórios de vendas antigas.
 
-    // Retorna true para indicar que a operação foi bem-sucedida
-    return true;
+    return produtoArquivado;
 };
-
 export const listarRedesSociaisService = async (barbeariaId: string) => {
     return await prisma.redeSocial.findMany({
         where: { barbeariaId },

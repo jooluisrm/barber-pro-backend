@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { alterarSenhaService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarProdutoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateBarbeariaService, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { alterarSenhaService, arquivarProdutoService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarProdutosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateBarbeariaService, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
@@ -1026,23 +1026,21 @@ export const editarProdutoController = async (req: AuthRequest, res: Response) =
     }
 };
 
-export const deletarProdutoController = async (req: Request, res: Response) => {
+export const arquivarProdutoController = async (req: AuthRequest, res: Response) => {
     try {
-        const { barbeariaId, produtoId } = req.params;
+        const { produtoId } = req.params;
+        // Mais seguro: usar o barbeariaId do token do usuário autenticado
+        const barbeariaId = req.user!.barbeariaId;
 
-        if (!barbeariaId || !produtoId) {
-            return res.status(400).json({ error: 'ID da barbearia e do produto são obrigatórios.' });
+        await arquivarProdutoService({ barbeariaId, produtoId });
+
+        return res.status(200).json({ message: 'Produto arquivado com sucesso!' });
+        
+    } catch (error: any) {
+        console.error('Erro ao arquivar produto:', error);
+        if (error.message.includes('não encontrado') || error.message.includes('já está arquivado')) {
+            return res.status(404).json({ error: error.message });
         }
-
-        const sucesso = await deletarProdutoService({ barbeariaId, produtoId });
-
-        if (!sucesso) {
-            return res.status(404).json({ error: 'Produto não encontrado para esta barbearia.' });
-        }
-
-        return res.status(200).json({ message: 'Produto deletado com sucesso!' });
-    } catch (error) {
-        console.error('Erro ao deletar produto:', error);
         return res.status(500).json({ error: 'Erro interno do servidor.' });
     }
 };
