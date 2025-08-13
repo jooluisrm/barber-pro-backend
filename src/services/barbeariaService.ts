@@ -147,7 +147,8 @@ export const BuscarAvaliacoesPorBarbearia = async (barbeariaId: string) => {
             dataHora: true,
             usuario: {
                 select: {
-                    nome: true // Apenas o nome do usuário
+                    nome: true, // Apenas o nome do usuário
+                    fotoPerfil: true
                 }
             }
         },

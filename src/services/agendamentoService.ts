@@ -60,6 +60,7 @@ export const BuscarAgendamentosUsuario = async (usuarioId: string) => {
                     nome: true,
                     preco: true,
                     duracao: true,
+                    imagemUrl: true,
                 }
             }
         },

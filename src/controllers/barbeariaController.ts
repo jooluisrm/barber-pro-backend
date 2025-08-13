@@ -141,7 +141,8 @@ export const obterAvaliacoesPorBarbearia = async (req: Request, res: Response) =
             nota: avaliacao.nota,
             nome: avaliacao.usuario.nome,
             data: avaliacao.dataHora,
-            comentario: avaliacao.comentario
+            comentario: avaliacao.comentario,
+            fotoPerfil: avaliacao.usuario.fotoPerfil
         }));
 
         return res.status(200).json(avaliacoesFormatadas);
