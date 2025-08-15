@@ -381,7 +381,16 @@ export const loginController = async (req: Request, res: Response) => {
 export const getAgendamentosController = async (req: Request, res: Response) => {
     try {
         const { barbeariaId } = req.params;
-        const agendamentos = await getAgendamentosService(barbeariaId);
+        // Extrai os filtros da query string da URL
+        const { data, barbeiroId, status } = req.query;
+
+        const agendamentos = await getAgendamentosService({
+            barbeariaId,
+            data: data as string | undefined,
+            barbeiroId: barbeiroId as string | undefined,
+            status: status as string | undefined,
+        });
+
         return res.json(agendamentos);
     } catch (error) {
         console.error('Erro ao buscar agendamentos:', error);

@@ -234,33 +234,95 @@ export const ObterRedesSociais = async (barbeariaId: string) => {
     });
 };
 
-export const getAgendamentosService = async (barbeariaId: string) => {
+// Interface para os novos filtros
+interface GetAgendamentosOptions {
+    barbeariaId: string;
+    data?: string; // Para filtrar por um dia específico, ex: "2025-08-15"
+    barbeiroId?: string;
+    status?: string;
+}
+
+export const getAgendamentosService = async (options: GetAgendamentosOptions) => {
+    const { barbeariaId, data, barbeiroId, status } = options;
+
+    // 1. Constrói a cláusula 'where' dinamicamente com base nos filtros recebidos
+    const whereClause: any = {
+        barbeariaId: barbeariaId,
+    };
+
+    if (data) {
+        whereClause.data = data;
+    }
+    if (barbeiroId) {
+        whereClause.barbeiroId = barbeiroId;
+    }
+    if (status) {
+        whereClause.status = status;
+    }
+
+    // 2. Busca os agendamentos no banco de dados
     const agendamentos = await prisma.agendamento.findMany({
-        where: { barbeariaId },
+        where: whereClause,
+        // 3. ATUALIZAÇÃO CRÍTICA: O novo 'include' para a estrutura de comanda
         include: {
+            // Inclui os dados do usuário registrado (se houver)
             usuario: {
                 select: {
                     id: true,
-                    nome: true
+                    nome: true,
                 },
             },
+            // Inclui os dados do barbeiro
             barbeiro: {
                 select: {
                     id: true,
                     nome: true,
                 },
             },
-            servico: {
-                select: {
-                    id: true,
-                    nome: true,
-                    preco: true,
-                },
+            // Inclui a LISTA de serviços realizados na comanda
+            servicosRealizados: {
+                include: {
+                    servico: { // Dentro de cada serviço da comanda, pega os dados do serviço
+                        select: {
+                            nome: true,
+                            preco: true,
+                            duracao: true,
+                        }
+                    }
+                }
             },
+            // Inclui a LISTA de produtos consumidos na comanda
+            produtosConsumidos: {
+                include: {
+                    produto: { // Pega os dados de cada produto
+                        select: {
+                            nome: true,
+                            precoVenda: true,
+                        }
+                    }
+                }
+            }
         },
+        orderBy: {
+            hora: 'asc', // Ordena os agendamentos do dia por hora
+        }
     });
 
-    return agendamentos;
+    // 4. Transforma os dados para simplificar para o frontend
+    const agendamentosComNomeCliente = agendamentos.map(ag => {
+        // Cria um campo unificado para o nome do cliente
+        const nomeCliente = ag.usuario ? ag.usuario.nome : ag.nomeVisitante;
+
+        // Remove os objetos 'usuario' e 'nomeVisitante' para evitar redundância
+        const { usuario, nomeVisitante, ...restoDoAgendamento } = ag;
+
+        return {
+            ...restoDoAgendamento,
+            nomeCliente, // Adiciona o novo campo
+        };
+    });
+
+    return agendamentosComNomeCliente;
 };
 
 export const getAgendamentosPorBarbeiroService = async (barbeiroId: string) => {
