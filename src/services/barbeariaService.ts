@@ -1408,61 +1408,88 @@ export const concluirAgendamentoService = async (agendamentoId: string, barbeari
     const { produtosConsumidos = [], servicosAdicionais = [], responsavelId } = data;
 
     await prisma.$transaction(async (tx) => {
-        // 1. Busca o agendamento e seus itens já existentes
-        const agendamento = await tx.agendamento.findUnique({
+        // 1. Validação inicial: Garante que o agendamento existe e está 'Confirmado'
+        const agendamentoInicial = await tx.agendamento.findFirst({
             where: { id: agendamentoId, barbeariaId: barbeariaId, status: 'Confirmado' },
+        });
+
+        if (!agendamentoInicial) {
+            throw new Error("Operação falhou: Agendamento não encontrado, não pertence a esta barbearia ou já foi finalizado/cancelado.");
+        }
+
+        // 2. ADICIONAR NOVOS SERVIÇOS à comanda
+        if (servicosAdicionais.length > 0) {
+            const servicosData = await tx.servico.findMany({
+                where: { id: { in: servicosAdicionais.map(s => s.servicoId) } },
+            });
+            await tx.agendamentoServico.createMany({
+                data: servicosData.map(servico => ({
+                    agendamentoId: agendamentoId,
+                    servicoId: servico.id,
+                    precoNoMomento: servico.preco || 0,
+                })),
+            });
+        }
+
+        // 3. ADICIONAR NOVOS PRODUTOS à comanda
+        if (produtosConsumidos.length > 0) {
+            const produtosData = await tx.produto.findMany({
+                where: { id: { in: produtosConsumidos.map(p => p.produtoId) } },
+            });
+            await tx.agendamentoProduto.createMany({
+                data: produtosConsumidos.map(item => {
+                    const produtoInfo = produtosData.find(p => p.id === item.produtoId);
+                    return {
+                        agendamentoId: agendamentoId,
+                        produtoId: item.produtoId,
+                        quantidade: item.quantidade,
+                        precoVendaNoMomento: produtoInfo?.precoVenda || 0,
+                    };
+                }),
+            });
+        }
+
+        // 4. BUSCAR A COMANDA COMPLETA (com itens antigos + novos)
+        const comandaCompleta = await tx.agendamento.findUniqueOrThrow({
+            where: { id: agendamentoId },
             include: {
                 servicosRealizados: { include: { servico: true } },
                 produtosConsumidos: { include: { produto: true } },
             },
         });
 
-        if (!agendamento) {
-            throw new Error("Operação falhou: Agendamento não encontrado, não pertence a esta barbearia ou já foi finalizado/cancelado.");
-        }
-
-        // 2. Adiciona novos produtos e serviços (se houver) à comanda
-        // (Esta parte pode ser expandida se você quiser adicionar itens no fechamento)
-        
-        // 3. Calcula o VALOR TOTAL da comanda
-        const valorServicos = agendamento.servicosRealizados.reduce(
-            (total, item) => total.plus(item.servico.preco || 0), new Decimal(0)
+        // 5. CALCULAR O VALOR TOTAL FINAL
+        const valorTotalServicos = comandaCompleta.servicosRealizados.reduce(
+            (total, item) => total.plus(item.precoNoMomento), new Decimal(0)
         );
-        const valorProdutos = agendamento.produtosConsumidos.reduce(
-            (total, item) => total.plus(new Decimal(item.produto.precoVenda || 0).times(item.quantidade)), new Decimal(0)
+        const valorTotalProdutos = comandaCompleta.produtosConsumidos.reduce(
+            (total, item) => total.plus(new Decimal(item.precoVendaNoMomento).times(item.quantidade)), new Decimal(0)
         );
-        const valorTotal = valorServicos.plus(valorProdutos);
+        const valorTotalFinal = valorTotalServicos.plus(valorTotalProdutos);
 
-        // 4. Dá BAIXA NO ESTOQUE para cada produto consumido
-        for (const item of agendamento.produtosConsumidos) {
-            // Cria o registro de movimentação de saída
+        // 6. DAR BAIXA NO ESTOQUE de TODOS os produtos da comanda
+        for (const item of comandaCompleta.produtosConsumidos) {
             await tx.movimentacaoEstoque.create({
                 data: {
                     produtoId: item.produtoId,
                     quantidade: item.quantidade,
                     tipo: 'SAIDA',
-                    motivo: `Venda no agendamento #${agendamento.id.substring(0, 8)}`,
+                    motivo: `Venda agendamento #${agendamentoId.substring(0, 8)}`,
                     responsavelId: responsavelId,
                 },
             });
-
-            // Atualiza a quantidade no estoque do produto
             await tx.produto.update({
                 where: { id: item.produtoId },
-                data: {
-                    quantidade: {
-                        decrement: item.quantidade,
-                    },
-                },
+                data: { quantidade: { decrement: item.quantidade } },
             });
         }
-        
-        // 5. ATUALIZA O AGENDAMENTO com o status final e o valor total
+
+        // 7. FINALIZAR O AGENDAMENTO com o status e valor total corretos
         await tx.agendamento.update({
             where: { id: agendamentoId },
             data: {
-                status: 'Feito', // ou 'Finalizado'
-                valorTotal: valorTotal,
+                status: 'Feito',
+                valorTotal: valorTotalFinal,
             },
         });
     });
