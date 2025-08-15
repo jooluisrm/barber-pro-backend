@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { alterarSenhaService, arquivarProdutoService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosParaClienteService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateBarbeariaService, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { alterarSenhaService, arquivarProdutoService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPendentesPorBarbeiroService, getAgendamentosPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosParaClienteService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateBarbeariaService, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
@@ -444,83 +444,27 @@ export const getAgendamentosPorBarbeiroController = async (req: AuthRequest, res
 
 
 export const getAgendamentosPendentesPorBarbeiroController = async (req: AuthRequest, res: Response) => {
-    // 1. Pegamos o ID do barbeiro da URL e o usuário logado do token
     const { barbeiroId } = req.params;
-    const usuarioLogado = req.user;
-
-    // Validação inicial
-    if (!barbeiroId) {
-        return res.status(400).json({ error: 'ID do barbeiro é obrigatório na URL.' });
-    }
-
-    if (!usuarioLogado) {
-        return res.status(401).json({ error: 'Não autorizado.' });
-    }
+    const usuarioLogado = req.user!;
 
     try {
-        // --- 2. VERIFICAÇÃO DE PERMISSÃO ---
+        // --- Sua lógica de permissão (mantida, pois está correta) ---
         if (usuarioLogado.role === 'BARBEIRO') {
-            const perfilDoUsuarioLogado = await prisma.barbeiro.findUnique({
-                where: { usuarioSistemaId: usuarioLogado.id },
-                select: { id: true }
-            });
+            const perfilDoUsuarioLogado = await prisma.barbeiro.findUnique({ where: { usuarioSistemaId: usuarioLogado.id } });
             if (perfilDoUsuarioLogado?.id !== barbeiroId) {
                 return res.status(403).json({ error: 'Acesso proibido. Você só pode ver seus próprios agendamentos pendentes.' });
             }
         } else if (usuarioLogado.role === 'ADMIN') {
-            const barbeiroConsultado = await prisma.barbeiro.findUnique({
-                where: { id: barbeiroId },
-                select: { barbeariaId: true }
-            });
+            const barbeiroConsultado = await prisma.barbeiro.findUnique({ where: { id: barbeiroId } });
             if (barbeiroConsultado?.barbeariaId !== usuarioLogado.barbeariaId) {
                 return res.status(403).json({ error: 'Acesso proibido. Este barbeiro não pertence à sua barbearia.' });
             }
         }
         
-        // --- 3. LÓGICA DE BUSCA (semelhante à sua, mas com filtro por barbeiroId) ---
-        const agora = new Date();
-        const hojeString = agora.toISOString().split('T')[0]; // "YYYY-MM-DD"
-        const horaAtualString = agora.toLocaleTimeString('pt-BR', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-        }); // "HH:MM"
+        // --- Lógica de busca agora está no service ---
+        const agendamentosPendentes = await getAgendamentosPendentesPorBarbeiroService(barbeiroId);
 
-        const agendamentosDoBanco = await prisma.agendamento.findMany({
-            where: {
-                barbeiroId: barbeiroId, // Filtro principal da rota
-                status: 'Confirmado',
-                OR: [
-                    { data: { lt: hojeString } }, // Agendamentos de dias anteriores
-                    { data: hojeString, hora: { lt: horaAtualString } }, // Agendamentos de hoje que já passaram
-                ],
-            },
-            select: {
-                id: true,
-                status: true,
-                data: true,
-                hora: true,
-                usuario: { select: { nome: true } },
-                servico: { select: { nome: true, preco: true } },
-                barbeiro: { select: { nome: true } }
-            },
-            orderBy: [{ data: 'asc' }, { hora: 'asc' }],
-        });
-
-        // --- 4. FORMATAÇÃO DO RESULTADO ---
-        const agendamentosFormatados = agendamentosDoBanco.map(agendamento => ({
-            idAgendamento: agendamento.id,
-            status: agendamento.status,
-            data: agendamento.data,
-            hora: agendamento.hora,
-            valor: String(agendamento.servico.preco), // Convertendo para string como no seu tipo
-            nomeCliente: agendamento.usuario.nome,
-            nomeBarbeiro: agendamento.barbeiro.nome,
-            nomeServico: agendamento.servico.nome
-        }));
-
-        // 5. Retorna a lista formatada
-        return res.status(200).json(agendamentosFormatados);
+        return res.status(200).json(agendamentosPendentes);
 
     } catch (error) {
         console.error('Erro ao buscar agendamentos pendentes do barbeiro:', error);

@@ -85,6 +85,7 @@ router.get('/barbershop/:barbeariaId', getBarbeariaByIdController);
 router.put('/barbershop', checkRole([Role.ADMIN]), upload.single('fotoPerfil'), updateMinhaBarbeariaController);
 
 router.get('/agendamentos/pendente/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), getAgendamentosPendentesPorBarbeiroController);
+router.get('/agendamentos/pendente/:barbeariaId', checkRole([Role.ADMIN, Role.BARBEIRO]), listarAgendamentosPendentesController);
 router.get('/agendamentos/barbeiro/:barbeiroId', checkRole([Role.ADMIN, Role.BARBEIRO]), getAgendamentosPorBarbeiroController);
 router.get('/agendamentos/:barbeariaId', getAgendamentosController);
 router.put('/agendamento/status/:agendamentoId', checkRole([Role.ADMIN, Role.BARBEIRO]), checkSubscription, updateStatusAgendamentoController);
@@ -124,7 +125,6 @@ router.patch('/usuarios-sistema/:usuarioId/alterar-senha', checkRole([Role.ADMIN
 router.post('/usuarios-sistema/picture', checkRole([Role.ADMIN, Role.BARBEIRO]), upload.single('fotoPerfil'), updateProfilePictureController);
 router.delete('/usuarios-sistema/picture', checkRole([Role.ADMIN, Role.BARBEIRO]), deleteProfilePictureController);
 
-router.get('/agendamentos/pendente/:barbeariaId', checkRole([Role.ADMIN, Role.BARBEIRO]), listarAgendamentosPendentesController);
 router.patch('/:barbeariaId/agendamentos/:agendamentoId/concluir', checkRole([Role.ADMIN, Role.BARBEIRO]), concluirAgendamentoController);
 router.patch('/:barbeariaId/agendamentos/:agendamentoId/cancelar', checkRole([Role.ADMIN, Role.BARBEIRO]), cancelarAgendamentoController);
 

@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import fs from 'fs/promises';
 import path from 'path';
 import { del } from "@vercel/blob";
+import { Decimal } from "@prisma/client/runtime/library";
 
 export const BuscarBarbeariasProximas = async (latUser: number, lonUser: number, raioKm: number) => {
     // Buscar todas as barbearias sem expor dados sensíveis
@@ -323,6 +324,73 @@ export const getAgendamentosService = async (options: GetAgendamentosOptions) =>
     });
 
     return agendamentosComNomeCliente;
+};
+
+export const getAgendamentosPendentesPorBarbeiroService = async (barbeiroId: string) => {
+    // 1. Sua lógica de data e hora (mantida, pois está correta)
+    const agora = new Date();
+    // Ajuste para o fuso horário local de Brasília (-3 horas do UTC)
+    agora.setHours(agora.getHours() - 3);
+    const hojeString = agora.toISOString().split('T')[0]; // "YYYY-MM-DD"
+    const horaAtualString = agora.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }); // "HH:MM"
+
+    // 2. Sua query principal, com o 'include' adaptado para a comanda
+    const agendamentosDoBanco = await prisma.agendamento.findMany({
+        where: {
+            barbeiroId: barbeiroId,
+            status: 'Confirmado',
+            OR: [
+                { data: { lt: hojeString } },
+                { data: hojeString, hora: { lt: horaAtualString } },
+            ],
+        },
+        include: {
+            usuario: { select: { nome: true } },
+            barbeiro: { select: { nome: true } },
+            servicosRealizados: {
+                include: {
+                    servico: { select: { nome: true } },
+                },
+            },
+            produtosConsumidos: true // Inclui os produtos para futuro cálculo
+        },
+        orderBy: [{ data: 'asc' }, { hora: 'asc' }],
+    });
+
+    // 3. Formatação do resultado para a nova estrutura
+    const agendamentosFormatados = agendamentosDoBanco.map(ag => {
+        // Lógica para obter o nome do cliente (registrado ou visitante)
+        const nomeCliente = ag.usuario?.nome || ag.nomeVisitante || 'Cliente não informado';
+        
+        // Calcula o valor total da comanda (somando apenas os serviços por enquanto)
+        const valorTotalComanda = ag.servicosRealizados.reduce((total, item) => {
+            // Supondo que você queira o preço atual do serviço para essa tela
+            // Se você salvou 'precoNoMomento' em AgendamentoServico, use-o aqui
+            const preco = item.precoNoMomento; 
+            return total.plus(preco);
+            return total; // Implementar o cálculo quando o preço for adicionado
+        }, new Decimal(0));
+
+        // Cria uma lista com os nomes dos serviços
+        const listaServicos = ag.servicosRealizados.map(item => item.servico.nome);
+
+        return {
+            idAgendamento: ag.id,
+            status: ag.status,
+            data: ag.data,
+            hora: ag.hora,
+            valor: valorTotalComanda.toString(),
+            nomeCliente: nomeCliente,
+            nomeBarbeiro: ag.barbeiro?.nome, // Adicionado '?' para segurança
+            servicos: listaServicos, // Agora é uma lista de nomes
+        };
+    });
+
+    return agendamentosFormatados;
 };
 
 
