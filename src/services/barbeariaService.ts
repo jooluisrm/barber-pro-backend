@@ -1022,9 +1022,12 @@ export const deleteHorarioFuncionamentoService = async ({ barbeariaId, horarioId
 interface AgendamentoVisitanteInput {
     barbeariaId: string;
     barbeiroId: string;
-    servicoId: string;
+    servicoId: string; // O ID do primeiro serviço continua sendo essencial
     data: string;
     hora: string;
+    // Novos campos que substituem a "gambiarra"
+    nomeVisitante: string; 
+    telefoneVisitante?: string;
 }
 
 export const createAgendamentoVisitanteService = async ({
@@ -1032,46 +1035,87 @@ export const createAgendamentoVisitanteService = async ({
     barbeiroId,
     servicoId,
     data,
-    hora
+    hora,
+    nomeVisitante,
+    telefoneVisitante,
 }: AgendamentoVisitanteInput) => {
-    const usuarioId = "visitante";
 
-    // Verificação de campos obrigatórios
-    if (!barbeariaId || !barbeiroId || !servicoId || !data || !hora) {
-        const error = new Error('Todos os campos são obrigatórios.');
+    // 1. Validação de campos obrigatórios (incluindo o nome do visitante)
+    if (!barbeariaId || !barbeiroId || !servicoId || !data || !hora || !nomeVisitante) {
+        const error = new Error('Todos os campos, incluindo o nome do cliente, são obrigatórios.');
         (error as any).statusCode = 400;
         throw error;
     }
 
-    // Verifica se o horário já está ocupado (exceto se estiver cancelado)
+    // 2. Buscar o serviço para obter o preço atual e validar se ele existe
+    const servico = await prisma.servico.findUnique({
+        where: { id: servicoId },
+    });
+
+    if (!servico || servico.barbeariaId !== barbeariaId) {
+        const error = new Error('Serviço não encontrado para esta barbearia.');
+        (error as any).statusCode = 404;
+        throw error;
+    }
+
+    // 3. Sua verificação de horário existente (continua a mesma e está correta)
     const agendamentoExistente = await prisma.agendamento.findFirst({
         where: {
             barbeiroId,
             data,
             hora,
+            status: { not: "Cancelado" },
         },
     });
 
-    if (agendamentoExistente && agendamentoExistente.status !== "Cancelado") {
+    if (agendamentoExistente) {
         const error = new Error('Esse horário já está agendado para o barbeiro selecionado.');
-        (error as any).statusCode = 400;
+        (error as any).statusCode = 409; // 409 Conflict é um bom status para isso
         throw error;
     }
 
-    // Cria o agendamento
-    const novoAgendamento = await prisma.agendamento.create({
-        data: {
-            usuarioId,
-            barbeariaId,
-            barbeiroId,
-            servicoId,
-            data,
-            hora,
-            status: 'Confirmado',
-        },
+    // 4. Criar o agendamento e seu primeiro serviço DENTRO DE UMA TRANSAÇÃO
+    const novoAgendamentoComServico = await prisma.$transaction(async (tx) => {
+        // Passo A: Cria o registro principal do Agendamento
+        const novoAgendamento = await tx.agendamento.create({
+            data: {
+                barbeariaId,
+                barbeiroId,
+                data,
+                hora,
+                status: 'Confirmado',
+                // Adiciona os dados do visitante, sem gambiarra
+                nomeVisitante: nomeVisitante,
+                telefoneVisitante: telefoneVisitante,
+                // O campo usuarioId fica NULO, como planejado
+            },
+        });
+
+        // Passo B: Cria o registro na tabela de ligação AgendamentoServico
+        await tx.agendamentoServico.create({
+            data: {
+                agendamentoId: novoAgendamento.id,
+                servicoId: servicoId,
+                // Salva o preço do serviço no momento do agendamento
+                precoNoMomento: servico.preco || 0,
+            },
+        });
+
+        return novoAgendamento;
     });
 
-    return novoAgendamento;
+    // 5. Retorna o agendamento criado (agora sem servicoId direto)
+    // Opcional: você pode incluir os serviços para retornar o agendamento completo
+    return prisma.agendamento.findUnique({
+        where: { id: novoAgendamentoComServico.id },
+        include: {
+            servicosRealizados: {
+                include: {
+                    servico: true,
+                },
+            },
+        },
+    });
 };
 
 interface UpdateParams {
