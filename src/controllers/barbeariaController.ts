@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { alterarSenhaService, arquivarProdutoService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPendentesPorBarbeiroService, getAgendamentosPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosParaClienteService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateBarbeariaService, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
+import { alterarSenhaService, arquivarProdutoService, atualizarUsuarioService, BuscarAvaliacoesPorBarbearia, BuscarBarbeariaPorNome, BuscarBarbeariasAtivas, BuscarBarbeariasPorNome, BuscarBarbeariasProximas, BuscarBarbeirosPorBarbearia, BuscarServicosPorBarbearia, cancelarAgendamentoService, ConcluirAgendamentoInput, concluirAgendamentoService, createAgendamentoVisitanteService, createFormaPagamentoService, createHorarioFuncionamentoService, CriarAvaliacao, criarProdutoService, criarRedeSocialService, criarServicoService, deletarRedeSocialService, deletarServicoService, deleteBarbeiroService, deleteFormaPagamentoService, deleteHorarioFuncionamentoService, deleteProfilePictureService, editarProdutoService, editarRedeSocialService, editarServicoService, getAgendamentosPendentesPorBarbeiroService, getAgendamentosService, getBarbeariaByIdService, getFormasPagamentoService, getHorariosFuncionamentoService, getHorariosPorDiaService, listarAgendamentosPendentesService, listarProdutosParaClienteService, listarProdutosService, listarRedesSociaisService, listarServicosDaBarbeariaService, ObterFormasPagamento, ObterHorariosFuncionamento, ObterRedesSociais, updateBarbeariaService, updateHorarioFuncionamentoService, updateProfilePictureService, updateStatusAgendamentoService } from '../services/barbeariaService';
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../libs/prisma';
@@ -1403,28 +1403,29 @@ export const listarAgendamentosPendentesController = async (req: AuthRequest, re
 
 export const concluirAgendamentoController = async (req: AuthRequest, res: Response) => {
     try {
-        // 1. Extração de dados da requisição (incluindo o mergeParams)
         const { agendamentoId, barbeariaId } = req.params;
         const usuarioLogado = req.user!;
 
-        // 2. Validação de segurança (Barbeiro só pode alterar da sua barbearia)
+        // A lógica de permissão continua a mesma
         if (usuarioLogado.role === 'BARBEIRO' && usuarioLogado.barbeariaId !== barbeariaId) {
-            return res.status(403).json({ error: 'Acesso negado para concluir agendamentos desta barbearia.' });
+            return res.status(403).json({ error: 'Acesso negado.' });
         }
+        
+        // Monta o DTO com o corpo da requisição e o ID do responsável
+        const inputData: ConcluirAgendamentoInput = {
+            ...req.body,
+            responsavelId: usuarioLogado.id,
+        };
 
-        // 3. Chamada para a camada de serviço
-        await concluirAgendamentoService(agendamentoId, barbeariaId);
+        // Chama o serviço com os novos dados
+        await concluirAgendamentoService(agendamentoId, barbeariaId, inputData);
 
-        // 4. Resposta de sucesso
-        return res.status(200).json({ message: 'Agendamento concluído com sucesso!' });
+        return res.status(200).json({ message: 'Agendamento concluído e comanda fechada com sucesso!' });
 
     } catch (error: any) {
-        // 5. Tratamento de erro específico vindo do serviço
         if (error.message.includes('Operação falhou')) {
             return res.status(404).json({ error: error.message });
         }
-        
-        // 6. Erro genérico
         console.error('Erro ao concluir agendamento:', error);
         return res.status(500).json({ error: 'Ocorreu um erro interno no servidor.' });
     }

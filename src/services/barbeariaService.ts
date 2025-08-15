@@ -1422,29 +1422,81 @@ export const listarAgendamentosPendentesService = async (barbeariaId: string): P
     return agendamentosFormatados;
 };
 
-export const concluirAgendamentoService = async (agendamentoId: string, barbeariaId: string): Promise<void> => {
-    try {
-        // 1. A lógica de negócio principal: a atualização atômica
-        await prisma.agendamento.update({
-            where: {
-                id: agendamentoId,
-                barbeariaId: barbeariaId,
-                status: 'Confirmado', // Só atualiza se o status for 'Confirmado'
-            },
-            data: {
-                status: 'Feito',
+export interface ConcluirAgendamentoInput {
+    // Lista de produtos consumidos com suas quantidades
+    produtosConsumidos: {
+        produtoId: string;
+        quantidade: number;
+    }[];
+    // Lista de serviços extras realizados (se houver)
+    servicosAdicionais?: {
+        servicoId: string;
+    }[];
+    responsavelId: string; // ID do UsuarioSistema que está fechando a comanda
+}
+
+export const concluirAgendamentoService = async (agendamentoId: string, barbeariaId: string, data: ConcluirAgendamentoInput): Promise<void> => {
+    const { produtosConsumidos = [], servicosAdicionais = [], responsavelId } = data;
+
+    await prisma.$transaction(async (tx) => {
+        // 1. Busca o agendamento e seus itens já existentes
+        const agendamento = await tx.agendamento.findUnique({
+            where: { id: agendamentoId, barbeariaId: barbeariaId, status: 'Confirmado' },
+            include: {
+                servicosRealizados: { include: { servico: true } },
+                produtosConsumidos: { include: { produto: true } },
             },
         });
-    } catch (error) {
-        // 2. Tradução do erro específico do Prisma para um erro de negócio
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-            throw new Error(
-                "Operação falhou: o agendamento não foi encontrado, não pertence a esta barbearia ou seu status não permite a alteração."
-            );
+
+        if (!agendamento) {
+            throw new Error("Operação falhou: Agendamento não encontrado, não pertence a esta barbearia ou já foi finalizado/cancelado.");
         }
-        // 3. Lançamento de outros erros inesperados
-        throw error;
-    }
+
+        // 2. Adiciona novos produtos e serviços (se houver) à comanda
+        // (Esta parte pode ser expandida se você quiser adicionar itens no fechamento)
+        
+        // 3. Calcula o VALOR TOTAL da comanda
+        const valorServicos = agendamento.servicosRealizados.reduce(
+            (total, item) => total.plus(item.servico.preco || 0), new Decimal(0)
+        );
+        const valorProdutos = agendamento.produtosConsumidos.reduce(
+            (total, item) => total.plus(new Decimal(item.produto.precoVenda || 0).times(item.quantidade)), new Decimal(0)
+        );
+        const valorTotal = valorServicos.plus(valorProdutos);
+
+        // 4. Dá BAIXA NO ESTOQUE para cada produto consumido
+        for (const item of agendamento.produtosConsumidos) {
+            // Cria o registro de movimentação de saída
+            await tx.movimentacaoEstoque.create({
+                data: {
+                    produtoId: item.produtoId,
+                    quantidade: item.quantidade,
+                    tipo: 'SAIDA',
+                    motivo: `Venda no agendamento #${agendamento.id.substring(0, 8)}`,
+                    responsavelId: responsavelId,
+                },
+            });
+
+            // Atualiza a quantidade no estoque do produto
+            await tx.produto.update({
+                where: { id: item.produtoId },
+                data: {
+                    quantidade: {
+                        decrement: item.quantidade,
+                    },
+                },
+            });
+        }
+        
+        // 5. ATUALIZA O AGENDAMENTO com o status final e o valor total
+        await tx.agendamento.update({
+            where: { id: agendamentoId },
+            data: {
+                status: 'Feito', // ou 'Finalizado'
+                valorTotal: valorTotal,
+            },
+        });
+    });
 };
 
 export const cancelarAgendamentoService = async (agendamentoId: string, barbeariaId: string): Promise<void> => {
