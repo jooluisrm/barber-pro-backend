@@ -117,14 +117,14 @@ model HorarioTrabalho {
 }
 
 model Servico {
-  id           String        @id @default(uuid())
-  barbeariaId  String
-  nome         String
-  duracao      Int
-  preco        Decimal?
-  imagemUrl    String?
-  barbearia    Barbearia     @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
-  agendamentos Agendamento[]
+  id                 String               @id @default(uuid())
+  barbeariaId        String
+  nome               String
+  duracao            Int
+  preco              Decimal?
+  imagemUrl          String?
+  barbearia          Barbearia            @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
+  AgendamentoServico AgendamentoServico[]
 }
 
 // NOVO: Enum para o tipo de movimentação de estoque
@@ -154,13 +154,13 @@ enum StatusProduto {
 }
 
 model Produto {
-  id                 String    @id @default(uuid())
+  id                 String        @id @default(uuid())
   barbeariaId        String
   nome               String
   descricao          String?
   precoVenda         Decimal // ALTERADO: Renomeado de 'preco' para maior clareza
   custo              Decimal // NOVO: Custo de compra do produto
-  quantidade         Int       @default(0) // NOVO: Saldo atual do produto em estoque
+  quantidade         Int           @default(0) // NOVO: Saldo atual do produto em estoque
   dataValidade       DateTime? // NOVO: Campo para controlar o vencimento
   alertaEstoqueBaixo Int? // NOVO: Nível numérico para alerta de estoque baixo
   tipo               String
@@ -170,24 +170,64 @@ model Produto {
   barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
 
   // NOVO: Relacionamento com o histórico de movimentações
-  movimentacoes MovimentacaoEstoque[]
+  movimentacoes      MovimentacaoEstoque[]
+  AgendamentoProduto AgendamentoProduto[]
 }
 
-
+// MODELO ATUALIZADO
 model Agendamento {
   id          String @id @default(uuid())
-  usuarioId   String
   barbeariaId String
   barbeiroId  String
-  servicoId   String
-  data        String
-  hora        String
-  status      String @default("Confirmado")
 
-  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  // MUDANÇA: O ID do usuário agora é opcional
+  usuarioId String?
+
+  data       String
+  hora       String
+  status     String   @default("Confirmado")
+  valorTotal Decimal?
+
+  // NOVOS CAMPOS PARA VISITANTES
+  nomeVisitante     String?
+  telefoneVisitante String?
+
+  // A relação com o usuário agora precisa refletir a opcionalidade
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
   barbearia Barbearia @relation(fields: [barbeariaId], references: [id], onDelete: Cascade)
   barbeiro  Barbeiro  @relation(fields: [barbeiroId], references: [id], onDelete: Cascade)
-  servico   Servico   @relation(fields: [servicoId], references: [id], onDelete: Cascade)
+
+  // Relações da "Comanda" que discutimos anteriormente
+  servicosRealizados AgendamentoServico[]
+  produtosConsumidos AgendamentoProduto[]
+}
+
+// NOVO MODELO: Tabela de ligação para os serviços da comanda
+model AgendamentoServico {
+  id            String @id @default(uuid())
+  agendamentoId String
+  servicoId     String
+
+  // IMPORTANTE: Guarda o preço no momento do serviço para histórico fiel
+  precoNoMomento Decimal
+
+  agendamento Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  servico     Servico     @relation(fields: [servicoId], references: [id])
+}
+
+// NOVO MODELO: Tabela de ligação para os produtos da comanda
+model AgendamentoProduto {
+  id            String @id @default(uuid())
+  agendamentoId String
+  produtoId     String
+  quantidade    Int // Essencial para saber quantos itens (ex: 2 cervejas)
+
+  // IMPORTANTE: Guarda o preço no momento da venda
+  precoVendaNoMomento Decimal
+
+  agendamento Agendamento @relation(fields: [agendamentoId], references: [id], onDelete: Cascade)
+  produto     Produto     @relation(fields: [produtoId], references: [id])
 }
 
 model Avaliacao {
@@ -203,14 +243,16 @@ model Avaliacao {
 }
 
 // Este modelo é para os clientes finais da barbearia, não para os gestores.
-// Está correto e não precisa de alterações.
 model Usuario {
-  id           String        @id @default(uuid())
-  nome         String
-  email        String        @unique
-  senha        String
-  telefone     String?
-  fotoPerfil   String?
+  id         String  @id @default(uuid())
+  nome       String
+  email      String  @unique
+  senha      String
+  telefone   String?
+  fotoPerfil String?
+
+  // A relação aqui continua a mesma, pois um usuário pode ter muitos agendamentos
   agendamentos Agendamento[]
-  avaliacoes   Avaliacao[]
+
+  avaliacoes Avaliacao[]
 }
