@@ -325,33 +325,6 @@ export const getAgendamentosService = async (options: GetAgendamentosOptions) =>
     return agendamentosComNomeCliente;
 };
 
-export const getAgendamentosPorBarbeiroService = async (barbeiroId: string) => {
-    if (!barbeiroId) {
-        throw new Error('ID do barbeiro é obrigatório.');
-    }
-
-    const agendamentos = await prisma.agendamento.findMany({
-        where: {
-            barbeiroId: barbeiroId
-        },
-        include: {
-            usuario: {
-                select: { id: true, nome: true }
-            },
-            barbeiro: {
-                select: { id: true, nome: true }
-            },
-            servico: {
-                select: { id: true, nome: true, preco: true }
-            },
-        },
-        orderBy: {
-            data: 'asc' // Ordena por data
-        }
-    });
-
-    return agendamentos;
-};
 
 export const updateStatusAgendamentoService = async (agendamentoId: string, status: string) => {
     const updatedAgendamento = await prisma.agendamento.update({

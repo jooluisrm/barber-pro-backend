@@ -400,41 +400,40 @@ export const getAgendamentosController = async (req: Request, res: Response) => 
 
 export const getAgendamentosPorBarbeiroController = async (req: AuthRequest, res: Response) => {
     try {
-        const { barbeiroId: barbeiroIdDaUrl } = req.params;
-        const usuarioLogado = req.user;
+        const { barbeiroId } = req.params;
+        const usuarioLogado = req.user!;
+        
+        // Extrai filtros de data e status da query string
+        const { data, status } = req.query;
 
-        if (!usuarioLogado) {
-            // Este caso é improvável se o middleware checkRole for usado antes.
-            return res.status(401).json({ error: 'Não autorizado.' });
-        }
-
-        // --- VERIFICAÇÃO DE PERMISSÃO ---
-        // REGRA 1: Se o usuário logado é um BARBEIRO, ele só pode ver seus próprios agendamentos.
+        // --- A sua lógica de permissão aqui é excelente e será mantida! ---
         if (usuarioLogado.role === 'BARBEIRO') {
-            // Buscamos o perfil de barbeiro associado à conta de login
             const perfilDoUsuarioLogado = await prisma.barbeiro.findUnique({
                 where: { usuarioSistemaId: usuarioLogado.id },
                 select: { id: true }
             });
-
-            if (perfilDoUsuarioLogado?.id !== barbeiroIdDaUrl) {
-                return res.status(403).json({ error: 'Acesso proibido. Você só pode visualizar seus próprios agendamentos.' });
+            if (perfilDoUsuarioLogado?.id !== barbeiroId) {
+                return res.status(403).json({ error: 'Acesso proibido. Você só pode ver seus próprios agendamentos.' });
             }
-        }
-        // REGRA 2: Se for ADMIN, verifica se o barbeiro consultado pertence à sua barbearia.
-        else if (usuarioLogado.role === 'ADMIN') {
+        } else if (usuarioLogado.role === 'ADMIN') {
             const barbeiroConsultado = await prisma.barbeiro.findUnique({
-                where: { id: barbeiroIdDaUrl },
+                where: { id: barbeiroId },
                 select: { barbeariaId: true }
             });
-            
             if (barbeiroConsultado?.barbeariaId !== usuarioLogado.barbeariaId) {
                 return res.status(403).json({ error: 'Acesso proibido. Este barbeiro não pertence à sua barbearia.' });
             }
         }
 
-        // Se passou nas verificações, busca os agendamentos.
-        const agendamentos = await getAgendamentosPorBarbeiroService(barbeiroIdDaUrl);
+        // --- MUDANÇA PRINCIPAL ---
+        // Se passou nas verificações, chama o serviço genérico passando os filtros.
+        const agendamentos = await getAgendamentosService({
+            barbeariaId: usuarioLogado.barbeariaId, // O ID da barbearia vem do usuário logado
+            barbeiroId: barbeiroId,                 // Filtra pelo barbeiro específico da URL
+            data: data as string | undefined,       // Filtra por data, se fornecido
+            status: status as string | undefined,   // Filtra por status, se fornecido
+        });
+
         return res.json(agendamentos);
 
     } catch (error) {
