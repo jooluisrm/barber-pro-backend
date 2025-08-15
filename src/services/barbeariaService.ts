@@ -1335,37 +1335,29 @@ export const alterarSenhaService = async ({
     });
 };
 
+// Opcional: Definir um tipo para o retorno formatado
 type AgendamentoPendenteFormatado = {
     idAgendamento: string;
     status: string;
     data: string;
     hora: string;
-    valor: number;
+    valorTotalComanda: string;
     nomeCliente: string | null;
     nomeBarbeiro: string | null;
-    nomeServico: string;
+    servicos: string[];
+    produtos: { nome: string | null, quantidade: number }[];
 };
 
 export const listarAgendamentosPendentesService = async (barbeariaId: string): Promise<AgendamentoPendenteFormatado[]> => {
-    // Adicionamos uma verificação para garantir que a barbearia existe
-    const barbeariaExiste = await prisma.barbearia.findUnique({
-        where: { id: barbeariaId }
-    });
-
-    if (!barbeariaExiste) {
-        throw new Error('Barbearia não encontrada.');
-    }
-
-    // 1. Lógica para obter data e hora atuais
+    // 1. Sua lógica de data e hora (mantida, pois está correta)
     const agora = new Date();
+    agora.setHours(agora.getHours() - 3); // Fuso horário de Brasília
     const hojeString = agora.toISOString().split('T')[0];
     const horaAtualString = agora.toLocaleTimeString('pt-BR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
+        hour: '2-digit', minute: '2-digit', hour12: false,
     });
 
-    // 2. Consulta ao banco de dados
+    // 2. Consulta ao banco com o 'include' correto para a comanda
     const agendamentosDoBanco = await prisma.agendamento.findMany({
         where: {
             barbeariaId: barbeariaId,
@@ -1375,29 +1367,57 @@ export const listarAgendamentosPendentesService = async (barbeariaId: string): P
                 { data: hojeString, hora: { lt: horaAtualString } },
             ],
         },
-        select: {
-            id: true,
-            status: true,
-            data: true,
-            hora: true,
+        include: {
             usuario: { select: { nome: true } },
-            servico: { select: { nome: true, preco: true } },
-            barbeiro: { select: { nome: true } }
+            barbeiro: { select: { nome: true } },
+            servicosRealizados: {
+                include: { servico: { select: { nome: true, preco: true } } },
+            },
+            produtosConsumidos: {
+                include: { produto: { select: { nome: true, precoVenda: true } } },
+            },
         },
         orderBy: [{ data: 'asc' }, { hora: 'asc' }],
     });
 
-    // 3. Formatação dos dados para a API
-    const agendamentosFormatados = agendamentosDoBanco.map(agendamento => ({
-        idAgendamento: agendamento.id,
-        status: agendamento.status,
-        data: agendamento.data,
-        hora: agendamento.hora,
-        valor: agendamento.servico.preco?.toNumber() ?? 0,
-        nomeCliente: agendamento.usuario?.nome ?? null,
-        nomeBarbeiro: agendamento.barbeiro?.nome ?? null,
-        nomeServico: agendamento.servico.nome
-    }));
+    // 3. Formatação dos dados, agora lendo a estrutura da comanda
+    const agendamentosFormatados = agendamentosDoBanco.map(agendamento => {
+        // Unifica o nome do cliente
+        const nomeCliente = agendamento.usuario?.nome || agendamento.nomeVisitante || null;
+
+        // Calcula o valor total somando serviços e produtos
+        const valorServicos = agendamento.servicosRealizados.reduce((total, item) => {
+            // Se você usar o precoNoMomento, substitua aqui. Por enquanto, usamos o preço atual.
+            return total.plus(item.servico.preco || 0);
+        }, new Decimal(0));
+
+        const valorProdutos = agendamento.produtosConsumidos.reduce((total, item) => {
+            // Se usar precoVendaNoMomento, substitua aqui.
+            const precoItem = item.produto.precoVenda || 0;
+            return total.plus(new Decimal(precoItem).times(item.quantidade));
+        }, new Decimal(0));
+
+        const valorTotalComanda = valorServicos.plus(valorProdutos);
+        
+        // Cria listas de nomes de serviços e produtos
+        const listaServicos = agendamento.servicosRealizados.map(s => s.servico.nome);
+        const listaProdutos = agendamento.produtosConsumidos.map(p => ({
+            nome: p.produto.nome,
+            quantidade: p.quantidade,
+        }));
+
+        return {
+            idAgendamento: agendamento.id,
+            status: agendamento.status,
+            data: agendamento.data,
+            hora: agendamento.hora,
+            valorTotalComanda: valorTotalComanda.toFixed(2),
+            nomeCliente: nomeCliente,
+            nomeBarbeiro: agendamento.barbeiro?.nome || null,
+            servicos: listaServicos,
+            produtos: listaProdutos,
+        };
+    });
 
     return agendamentosFormatados;
 };
