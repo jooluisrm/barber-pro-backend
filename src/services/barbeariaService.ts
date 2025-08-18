@@ -6,6 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { del } from "@vercel/blob";
 import { Decimal } from "@prisma/client/runtime/library";
+import { startOfMonth, subMonths } from "date-fns";
 
 export const BuscarBarbeariasProximas = async (latUser: number, lonUser: number, raioKm: number) => {
     // Buscar todas as barbearias sem expor dados sensíveis
@@ -271,6 +272,9 @@ export const getAgendamentosService = async (options: GetAgendamentosOptions) =>
                 select: {
                     id: true,
                     nome: true,
+                    telefone: true,
+                    email: true,
+                    fotoPerfil: true
                 },
             },
             // Inclui os dados do barbeiro
@@ -278,6 +282,7 @@ export const getAgendamentosService = async (options: GetAgendamentosOptions) =>
                 select: {
                     id: true,
                     nome: true,
+                    fotoPerfil: true
                 },
             },
             // Inclui a LISTA de serviços realizados na comanda
@@ -309,21 +314,33 @@ export const getAgendamentosService = async (options: GetAgendamentosOptions) =>
         }
     });
 
-    // 4. Transforma os dados para simplificar para o frontend
-    const agendamentosComNomeCliente = agendamentos.map(ag => {
-        // Cria um campo unificado para o nome do cliente
-        const nomeCliente = ag.usuario ? ag.usuario.nome : ag.nomeVisitante;
+    // --- MUDANÇA NA TRANSFORMAÇÃO DOS DADOS ---
+    const agendamentosFormatados = agendamentos.map(ag => {
+        // Se for um usuário registrado, preparamos o objeto com seus dados
+        const dadosCliente = ag.usuario 
+            ? {
+                nomeCliente: ag.usuario.nome,
+                emailCliente: ag.usuario.email,
+                telefoneCliente: ag.usuario.telefone,
+                fotoPerfilCliente: ag.usuario.fotoPerfil
+            } 
+            : { // Se for um visitante, preenchemos com os dados do agendamento
+                nomeCliente: ag.nomeVisitante,
+                emailCliente: null,
+                telefoneCliente: ag.telefoneVisitante,
+                fotoPerfilCliente: null
+            };
 
-        // Remove os objetos 'usuario' e 'nomeVisitante' para evitar redundância
-        const { usuario, nomeVisitante, ...restoDoAgendamento } = ag;
+        // Remove os objetos originais para evitar redundância
+        const { usuario, nomeVisitante, telefoneVisitante, ...restoDoAgendamento } = ag;
 
         return {
             ...restoDoAgendamento,
-            nomeCliente, // Adiciona o novo campo
+            ...dadosCliente, // Adiciona os novos campos de cliente unificados
         };
     });
 
-    return agendamentosComNomeCliente;
+    return agendamentosFormatados;
 };
 
 export const getAgendamentosPendentesPorBarbeiroService = async (barbeiroId: string) => {
