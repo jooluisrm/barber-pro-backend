@@ -18,22 +18,21 @@ export const criarAgendamento = async (req: Request, res: Response) => {
 
 export const getMeusAgendamentosController = async (req: AuthRequest, res: Response) => {
     try {
-        // 1. Pega o ID do usuário DIRETAMENTE DO TOKEN. Muito mais seguro!
         const usuarioId = req.usuario?.id;
         if (!usuarioId) {
             return res.status(401).json({ error: "Usuário não autenticado." });
         }
 
-        // 2. Pega o filtro da query string (ex: ?filtro=passados)
-        const { filtro } = req.query as { filtro?: 'futuros' | 'passados' };
+        // Extrai os novos filtros da query string
+        const { dataInicio, dataFim, status } = req.query;
 
         const agendamentos = await getAgendamentosPorUsuarioService({
             usuarioId,
-            filtro,
+            dataInicio: dataInicio as string | undefined,
+            dataFim: dataFim as string | undefined,
+            status: status as string | undefined,
         });
 
-        // Retorna um array vazio com status 200 se não houver agendamentos,
-        // o que é melhor para o frontend.
         return res.status(200).json(agendamentos);
 
     } catch (error) {

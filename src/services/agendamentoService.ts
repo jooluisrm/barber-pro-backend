@@ -104,27 +104,33 @@ export const criarAgendamentoUsuarioService = async ({
 
 interface GetAgendamentosUsuarioOptions {
     usuarioId: string;
-    filtro?: 'futuros' | 'passados'; // Filtro para separar próximos de histórico
+    dataInicio?: string; // Formato "YYYY-MM-DD"
+    dataFim?: string;    // Formato "YYYY-MM-DD"
+    status?: string;     // Ex: "Confirmado", "Feito", "Cancelado"
 }
 
 export const getAgendamentosPorUsuarioService = async (options: GetAgendamentosUsuarioOptions) => {
-    const { usuarioId, filtro = 'futuros' } = options; // Padrão é buscar agendamentos futuros
+    const { usuarioId, dataInicio, dataFim, status } = options;
 
-    const hoje = format(new Date(), 'yyyy-MM-dd');
-    
-    // Constrói a cláusula 'where' dinamicamente
     const whereClause: any = {
         usuarioId: usuarioId,
     };
 
-    if (filtro === 'futuros') {
-        whereClause.data = { gte: hoje }; // gte: Greater Than or Equal (Maior ou igual a)
-        whereClause.status = { not: 'Cancelado' }; // Não mostra cancelados nos futuros
-    } else { // filtro === 'passados'
-        whereClause.data = { lt: hoje }; // lt: Less Than (Menor que)
+    // Adiciona o filtro de status, se fornecido
+    if (status) {
+        whereClause.status = status;
     }
 
-    const direction = filtro === 'futuros' ? 'asc' : 'desc';
+    // Adiciona o filtro de período (data)
+    if (dataInicio && dataFim) {
+        whereClause.data = {
+            gte: dataInicio, // Maior ou igual a data de início
+            lte: dataFim,    // Menor ou igual a data de fim
+        };
+    } else if (dataInicio) {
+        // Se só a data de início for fornecida, busca a partir dela
+        whereClause.data = { gte: dataInicio };
+    }
 
     const agendamentos = await prisma.agendamento.findMany({
         where: whereClause,
@@ -134,10 +140,10 @@ export const getAgendamentosPorUsuarioService = async (options: GetAgendamentosU
             servicosRealizados: { include: { servico: true } },
             produtosConsumidos: { include: { produto: true } },
         },
-        // Ordena do mais recente para o mais antigo no histórico, e vice-versa
+        // Ordena sempre do mais recente para o mais antigo, que é o mais comum para históricos
         orderBy: [
-            { data: direction },
-            { hora: direction },
+            { data: 'desc' },
+            { hora: 'desc' },
         ]
     });
 
