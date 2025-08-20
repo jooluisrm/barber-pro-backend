@@ -1,34 +1,104 @@
 import { prisma } from '../libs/prisma';
 
-export const CriarAgendamento = async (usuarioId: string, barbeariaId: string, barbeiroId: string, servicoId: string, data: string, hora: string) => {
-    // Verificar se já existe um agendamento nesse horário para o barbeiro, mas permite se estiver cancelado
+// Interface para os dados de entrada
+interface AgendamentoUsuarioInput {
+    usuarioId: string;
+    barbeariaId: string;
+    barbeiroId: string;
+    servicoId: string;
+    data: string;
+    hora: string;
+}
+
+export const criarAgendamentoUsuarioService = async ({
+    usuarioId,
+    barbeariaId,
+    barbeiroId,
+    servicoId,
+    data,
+    hora
+}: AgendamentoUsuarioInput) => {
+
+    // 1. Validação de campos obrigatórios
+    if (!usuarioId || !barbeariaId || !barbeiroId || !servicoId || !data || !hora) {
+        const error = new Error('Todos os campos são obrigatórios.');
+        (error as any).statusCode = 400;
+        throw error;
+    }
+
+    // 2. Buscar o serviço para obter o preço atual
+    const servico = await prisma.servico.findUnique({
+        where: { id: servicoId },
+    });
+
+    if (!servico || servico.barbeariaId !== barbeariaId) {
+        const error = new Error('Serviço não encontrado para esta barbearia.');
+        (error as any).statusCode = 404;
+        throw error;
+    }
+
+    // 3. Sua verificação de horário existente (continua válida)
     const agendamentoExistente = await prisma.agendamento.findFirst({
         where: {
             barbeiroId,
             data,
             hora,
+            status: { not: "Cancelado" },
         },
     });
 
-    // Se existir um agendamento, verificar se o status é Cancelado e permitir agendamento nesse caso
-    if (agendamentoExistente && agendamentoExistente.status !== 'Cancelado') {
-        throw new Error('Horário já agendado. Escolha outro horário.');
+    if (agendamentoExistente) {
+        const error = new Error('Esse horário já está agendado para o barbeiro selecionado.');
+        (error as any).statusCode = 409; // 409 Conflict
+        throw error;
     }
 
-    // Se o agendamento estiver cancelado, podemos criar um novo agendamento nesse horário
-    const novoAgendamento = await prisma.agendamento.create({
-        data: {
-            usuarioId,
-            barbeariaId,
-            barbeiroId,
-            servicoId,
-            data,
-            hora,
-            status: 'Confirmado', // Agendamento será confirmado automaticamente
-        },
+    // 4. Criar o agendamento e seu primeiro serviço dentro de uma TRANSAÇÃO
+    const novoAgendamentoComServico = await prisma.$transaction(async (tx) => {
+        // Passo A: Cria o registro principal do Agendamento, agora com usuarioId
+        const novoAgendamento = await tx.agendamento.create({
+            data: {
+                usuarioId, // A diferença principal está aqui
+                barbeariaId,
+                barbeiroId,
+                data,
+                hora,
+                status: 'Confirmado',
+                // Os campos de visitante ficam nulos
+            },
+        });
+
+        // Passo B: Cria o registro na tabela de ligação AgendamentoServico
+        await tx.agendamentoServico.create({
+            data: {
+                agendamentoId: novoAgendamento.id,
+                servicoId: servicoId,
+                precoNoMomento: servico.preco || 0,
+            },
+        });
+
+        return novoAgendamento;
     });
 
-    return novoAgendamento;
+    // 5. Retorna o agendamento criado de forma completa
+    return prisma.agendamento.findUnique({
+        where: { id: novoAgendamentoComServico.id },
+        include: {
+            usuario: {
+                select: {
+                    id: true,
+                    nome: true,
+                    telefone: true,
+                    // 'senha' e 'email' foram omitidos
+                },
+            },
+            servicosRealizados: {
+                include: {
+                    servico: true,
+                },
+            },
+        },
+    });
 };
 
 export const BuscarAgendamentosUsuario = async (usuarioId: string) => {

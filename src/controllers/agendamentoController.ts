@@ -1,17 +1,17 @@
 import { Request, Response } from 'express';
-import { BuscarAgendamentosUsuario, CancelarAgendamento, CriarAgendamento, DeletarAgendamento } from '../services/agendamentoService';
+import { BuscarAgendamentosUsuario, CancelarAgendamento, criarAgendamentoUsuarioService, DeletarAgendamento } from '../services/agendamentoService';
 
 export const criarAgendamento = async (req: Request, res: Response) => {
     try {
-        const { usuarioId, barbeariaId, barbeiroId, servicoId, data, hora } = req.body;
+        const data = req.body;
 
-        // Chama o Service para criar o agendamento
-        const novoAgendamento = await CriarAgendamento(usuarioId, barbeariaId, barbeiroId, servicoId, data, hora);
+        // Chama o Service refatorado para criar o agendamento
+        const novoAgendamento = await criarAgendamentoUsuarioService(data);
 
         return res.status(201).json(novoAgendamento);
-    } catch (error) {
+    } catch (error: any) {
         console.error('Erro ao criar agendamento:', error);
-        return res.status(500).json({ error: 'Erro ao criar agendamento.' });
+        return res.status(error.statusCode || 500).json({ error: error.message || 'Erro ao criar agendamento.' });
     }
 };
 
