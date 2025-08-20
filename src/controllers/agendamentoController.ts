@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { BuscarAgendamentosUsuario, CancelarAgendamento, criarAgendamentoUsuarioService, DeletarAgendamento } from '../services/agendamentoService';
+import { CancelarAgendamento, criarAgendamentoUsuarioService, DeletarAgendamento, getAgendamentosPorUsuarioService } from '../services/agendamentoService';
+import { AuthRequest } from '../middlewares/authMiddleware';
 
 export const criarAgendamento = async (req: Request, res: Response) => {
     try {
@@ -15,20 +16,28 @@ export const criarAgendamento = async (req: Request, res: Response) => {
     }
 };
 
-export const buscarAgendamentosUsuario = async (req: Request, res: Response) => {
+export const getMeusAgendamentosController = async (req: AuthRequest, res: Response) => {
     try {
-        const { usuarioId } = req.params;
-
-        // Chama o Service para buscar os agendamentos do usuário
-        const agendamentos = await BuscarAgendamentosUsuario(usuarioId);
-
-        if (agendamentos.length === 0) {
-            return res.status(404).json({ error: "Nenhum agendamento encontrado para este usuário." });
+        // 1. Pega o ID do usuário DIRETAMENTE DO TOKEN. Muito mais seguro!
+        const usuarioId = req.usuario?.id;
+        if (!usuarioId) {
+            return res.status(401).json({ error: "Usuário não autenticado." });
         }
 
+        // 2. Pega o filtro da query string (ex: ?filtro=passados)
+        const { filtro } = req.query as { filtro?: 'futuros' | 'passados' };
+
+        const agendamentos = await getAgendamentosPorUsuarioService({
+            usuarioId,
+            filtro,
+        });
+
+        // Retorna um array vazio com status 200 se não houver agendamentos,
+        // o que é melhor para o frontend.
         return res.status(200).json(agendamentos);
+
     } catch (error) {
-        console.error("Erro ao buscar agendamentos:", error);
+        console.error("Erro ao buscar meus agendamentos:", error);
         return res.status(500).json({ error: "Erro ao buscar agendamentos." });
     }
 };

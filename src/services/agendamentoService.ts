@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { prisma } from '../libs/prisma';
 
 // Interface para os dados de entrada
@@ -101,42 +102,43 @@ export const criarAgendamentoUsuarioService = async ({
     });
 };
 
-export const BuscarAgendamentosUsuario = async (usuarioId: string) => {
-    // Buscar todos os agendamentos do usuário
+interface GetAgendamentosUsuarioOptions {
+    usuarioId: string;
+    filtro?: 'futuros' | 'passados'; // Filtro para separar próximos de histórico
+}
+
+export const getAgendamentosPorUsuarioService = async (options: GetAgendamentosUsuarioOptions) => {
+    const { usuarioId, filtro = 'futuros' } = options; // Padrão é buscar agendamentos futuros
+
+    const hoje = format(new Date(), 'yyyy-MM-dd');
+    
+    // Constrói a cláusula 'where' dinamicamente
+    const whereClause: any = {
+        usuarioId: usuarioId,
+    };
+
+    if (filtro === 'futuros') {
+        whereClause.data = { gte: hoje }; // gte: Greater Than or Equal (Maior ou igual a)
+        whereClause.status = { not: 'Cancelado' }; // Não mostra cancelados nos futuros
+    } else { // filtro === 'passados'
+        whereClause.data = { lt: hoje }; // lt: Less Than (Menor que)
+    }
+
+    const direction = filtro === 'futuros' ? 'asc' : 'desc';
+
     const agendamentos = await prisma.agendamento.findMany({
-        where: { usuarioId },
-        select: {
-            id: true,
-            data: true,
-            hora: true,
-            status: true,
-            barbearia: {
-                select: {
-                    id: true,
-                    nome: true,
-                    endereco: true,
-                    celular: true,
-                }
-            },
-            barbeiro: {
-                select: {
-                    id: true,
-                    nome: true,
-                }
-            },
-            servico: {
-                select: {
-                    id: true,
-                    nome: true,
-                    preco: true,
-                    duracao: true,
-                    imagemUrl: true,
-                }
-            }
+        where: whereClause,
+        include: {
+            barbearia: { select: { id: true, nome: true, endereco: true } },
+            barbeiro: { select: { id: true, nome: true } },
+            servicosRealizados: { include: { servico: true } },
+            produtosConsumidos: { include: { produto: true } },
         },
-        orderBy: {
-            data: 'asc', // Ordena os agendamentos pela data
-        }
+        // Ordena do mais recente para o mais antigo no histórico, e vice-versa
+        orderBy: [
+            { data: direction },
+            { hora: direction },
+        ]
     });
 
     return agendamentos;

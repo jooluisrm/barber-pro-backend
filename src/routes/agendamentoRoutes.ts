@@ -1,11 +1,11 @@
 import express from 'express';
-import { buscarAgendamentosUsuario, cancelarAgendamento, criarAgendamento, deletarAgendamento } from '../controllers/agendamentoController';
+import { cancelarAgendamento, criarAgendamento, deletarAgendamento, getMeusAgendamentosController } from '../controllers/agendamentoController';
 import { autenticarToken } from '../middlewares/authMiddleware';
 
 const router = express.Router();
 
 router.post('/', autenticarToken, criarAgendamento);
-router.get('/:usuarioId', autenticarToken, buscarAgendamentosUsuario);
+router.get('/:usuarioId', autenticarToken, getMeusAgendamentosController);
 router.put('/:agendamentoId/cancelar', autenticarToken, cancelarAgendamento);
 router.delete('/:agendamentoId', autenticarToken, deletarAgendamento);
 
